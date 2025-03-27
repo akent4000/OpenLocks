@@ -88,7 +88,7 @@ class ServerAdmin(admin.ModelAdmin):
             'fields': ('ip',)
         }),
         ('Настройки сервера', {
-            'fields': ('user')
+            'fields': ('user',)
         }),
         ('SSH аутентификация', {
             'fields': ('password_auth', 'pubkey_auth', 'permit_empty_passwords', 'permit_root_login')
