@@ -1,0 +1,99 @@
+{% extends "admin/change_list.html" %}
+{% load static %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{{ sync_keys_url }}">Синхронизировать SSH ключи</a>
+    </li>
+    <li>
+        <button type="button" class="button" onclick="toggleInstructions()">Показать инструкцию</button>
+    </li>
+{% endblock %}
+
+{% block content %}
+    {{ block.super }}
+
+    <!-- Скрытый блок с подробной инструкцией -->
+    <div id="instructions-block" class="module aligned" style="display: none; margin-top: 20px;">
+      <h2>Инструкция по изменению прав доступа к файлу с приватным ключом</h2>
+      <p>
+        Если при подключении к серверу вы видите подобную ошибку:
+      </p>
+      <pre>
+ssh root@46.226.162.132 -i /путь/до/файла.pem
+
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+@         WARNING: UNPROTECTED PRIVATE KEY FILE!          @
+@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@@
+Permissions for '/путь/до/файла.pem' are too open.
+It is required that your private key files are NOT accessible by others.
+This private key will be ignored.
+Load key "/путь/до/файла.pem": bad permissions
+root@46.226.162.132: Permission denied (publickey)
+      </pre>
+      <p>Вам необходимо изменить права доступа к файлу с приватным ключом:</p>
+      <ul>
+        <li>
+          <strong>Linux/macOS:</strong>
+          <ul>
+            <li>
+              Откройте терминал.
+            </li>
+            <li>
+              Выполните команду:
+              <code>chmod 600 /путь/до/файла.pem</code>
+            </li>
+            <li>
+              Эта команда установит права доступа так, чтобы только владелец имел возможность читать и изменять файл.
+            </li>
+          </ul>
+        </li>
+        <li>
+          <strong>Windows:</strong>
+          <ul>
+            <li>
+              <strong>Вариант 1:</strong> Воспользуйтесь утилитой <code>icacls</code>.
+              <ul>
+                <li>
+                  Откройте командную строку (CMD) с правами администратора.
+                </li>
+                <li>
+                  Выполните команду:
+                  <code>icacls "C:\путь\до\файла.pem" /inheritance:r /grant:r %USERNAME%:F</code>
+                </li>
+                <li>
+                  Эта команда убирает наследование прав и даёт полные права только текущему пользователю.
+                </li>
+              </ul>
+            </li>
+            <li>
+              <strong>Вариант 2:</strong> Через свойства файла.
+              <ul>
+                <li>
+                  Щёлкните правой кнопкой мыши на файле и выберите «Свойства».
+                </li>
+                <li>
+                  Перейдите на вкладку «Безопасность».
+                </li>
+                <li>
+                  Нажмите «Изменить» и удалите все группы или пользователей, кроме вашей учётной записи.
+                </li>
+                <li>
+                  Убедитесь, что у вашей учётной записи установлены только необходимые разрешения (обычно – полный доступ).
+                </li>
+              </ul>
+            </li>
+          </ul>
+        </li>
+      </ul>
+    </div>
+
+    <!-- JavaScript для переключения видимости блока -->
+    <script>
+      function toggleInstructions() {
+        var block = document.getElementById("instructions-block");
+        block.style.display = (block.style.display === "none") ? "block" : "none";
+      }
+    </script>
+{% endblock %}

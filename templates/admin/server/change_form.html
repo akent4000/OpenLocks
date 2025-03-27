@@ -1,0 +1,16 @@
+{% extends "admin/change_form.html" %}
+{% load static %}
+
+{% block object-tools-items %}
+    {{ block.super }}
+    <li>
+        <a href="{{ sync_ssh_keys_url }}" class="button">
+            Синхронизировать SSH ключи
+        </a>
+    </li>
+    <li>
+        <a href="{{ reset_password_url }}" class="button">
+            Сбросить пароль пользователя
+        </a>
+    </li>
+{% endblock %}
