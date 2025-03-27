@@ -76,7 +76,7 @@ class ServerAdminForm(forms.ModelForm):
 # Server Admin формы
 ##############################
 @admin.register(Server)
-class NameServerAdmin(admin.ModelAdmin):
+class ServerAdmin(admin.ModelAdmin):
     form = ServerAdminForm
     list_display = (
         'id', 'ip',
