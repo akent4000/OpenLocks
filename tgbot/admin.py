@@ -18,7 +18,6 @@ from django.utils.http import urlencode
 
 from rangefilter.filters import DateRangeFilter, NumericRangeFilter
 
-from tgbot.dispatcher import bot
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 from tgbot.models import (
     Configuration,
