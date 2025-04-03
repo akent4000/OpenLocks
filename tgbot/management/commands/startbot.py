@@ -19,7 +19,7 @@ class Command(BaseCommand):
         
         # Функция, которая непрерывно пытается запустить polling для основного бота
         def run_main_bot():
-            from tgbot.handlers import commands, pay, utils  # Импортируем обработчики
+            from tgbot.handlers import commands, utils  # Импортируем обработчики
             while True:
                 try:
                     logger.info('Основной бот запущен')
