@@ -33,25 +33,33 @@ class Command(BaseCommand):
                     logger.info("Перезапуск основного бота...")
 
         # Функция, которая непрерывно пытается запустить polling для тестового бота
+        # Функция, которая непрерывно пытается запустить polling для тестового бота
         def run_test_bot():
+            if dispatcher.test_bot is None:
+                logger.warning("Тестовый бот не инициализирован. Поток run_test_bot завершён.")
+                return
+
             while True:
                 try:
                     if Configuration.is_test_mode():
                         logger.info('Тестовый бот запущен')
+
                         @dispatcher.test_bot.message_handler(func=lambda message: True)
                         def handle_all_messages(message):
-                            # Отправка сообщения о технических работах
                             dispatcher.test_bot.reply_to(
                                 message,
                                 "⚠️ *Технические работы* ⚠️\n\nВсе VPN конфигурации работают, но сейчас бот может не работать, или работать некорректно",
                                 parse_mode="Markdown"
                             )
+
                         dispatcher.test_bot.polling(none_stop=True, interval=0, timeout=20)
+
                 except Exception as e:
                     logger.error(f"Ошибка в тестовом боте: {str(e)}\n{traceback.format_exc()}")
                     dispatcher.test_bot.stop_polling()
                     time.sleep(5)
                     logger.info("Перезапуск тестового бота...")
+
 
         # Запускаем оба бота в отдельных потоках
         thread_main_bot = threading.Thread(target=run_main_bot, daemon=True)
