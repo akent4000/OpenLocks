@@ -161,8 +161,6 @@ class ServerAdmin(admin.ModelAdmin):
     
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
-        extra_context['download_ssl_files_url'] = reverse("admin:nameserver_download_ssl_files", args=[object_id])
-        extra_context['download_configurations_url'] = reverse("admin:nameserver_download_configurations", args=[object_id])
         extra_context['sync_ssh_keys_url'] = reverse("admin:nameserver_sync_ssh_keys", args=[object_id])
         extra_context['reset_password_url'] = reverse("admin:nameserver_reset_password", args=[object_id])
         return super().change_view(request, object_id, form_url, extra_context)
