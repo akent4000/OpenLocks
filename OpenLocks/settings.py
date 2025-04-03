@@ -29,9 +29,19 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "openlocks.testdomain.su"]
+
+LANGUAGE_CODE = 'ru'
+TIME_ZONE = 'UTC'
+USE_I18N = True
+USE_TZ = True
+CSRF_COOKIE_SECURE = True
+SESSION_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = [
     "https://openlocks.testdomain.su"
 ]
+
+STATIC_URL = '/static/'
+STATIC_ROOT = [BASE_DIR / "static"]
 
 # Application definition
 
