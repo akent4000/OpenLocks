@@ -29,7 +29,9 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "openlocks.testdomain.su"]
-
+CSRF_TRUSTED_ORIGINS = [
+    "https://openlocks.testdomain.su"
+]
 
 # Application definition
 
