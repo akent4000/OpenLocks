@@ -92,3 +92,96 @@ class SSHKey(models.Model):
         verbose_name = 'SSH ключ'
         verbose_name_plural = 'SSH ключи'
 
+class TelegramUser(models.Model):
+    """Модель пользователя Telegram"""
+    chat_id = models.BigIntegerField(unique=True, verbose_name='Chat ID')
+    first_name = models.CharField(max_length=255, verbose_name='Имя')
+    last_name = models.CharField(max_length=255, blank=True, null=True, verbose_name='Фамилия')
+    username = models.CharField(max_length=255, blank=True, null=True, verbose_name='Username')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата регистрации')
+    can_publish_tasks = models.BooleanField(default=False, verbose_name='Доступ к публикации заданий')
+
+    def __str__(self):
+        return f"{self.first_name} {self.last_name or ''} (@{self.username})"
+
+    class Meta:
+        verbose_name = 'Пользователь Telegram'
+        verbose_name_plural = 'Пользователи Telegram'
+
+
+class Tag(models.Model):
+    """Модель тега"""
+    name = models.CharField(max_length=100, unique=True, verbose_name='Имя тега')
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Тег'
+        verbose_name_plural = 'Теги'
+
+
+class PaymentTypeModel(models.Model):
+    """Модель типа оплаты"""
+    name = models.CharField(max_length=50, unique=True, verbose_name='Тип оплаты')  # Например, "50/50", "70/30"
+    description = models.TextField(blank=True, null=True, verbose_name='Описание')
+
+    def __str__(self):
+        return self.name
+
+    class Meta:
+        verbose_name = 'Тип оплаты'
+        verbose_name_plural = 'Типы оплаты'
+
+
+class Task(models.Model):
+    """Модель задания"""
+    class Stage(models.TextChoices):
+        CREATED = 'created', 'Создано'
+        EXECUTOR_CHOSEN = 'executor_chosen', 'Выбран исполнитель'
+        CLOSED = 'closed', 'Задание закрыто'
+
+    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, verbose_name='Тег')
+    title = models.CharField(max_length=255, verbose_name='Название')
+    description = models.TextField(verbose_name='Текст задания')
+    payment_type = models.ForeignKey(
+        PaymentTypeModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Тип оплаты'
+    )
+    creator = models.ForeignKey(
+        TelegramUser,
+        on_delete=models.CASCADE,
+        related_name='created_tasks',
+        verbose_name='Кто дал задание'
+    )
+    applicants = models.ManyToManyField(
+        TelegramUser,
+        blank=True,
+        related_name='applied_tasks',
+        verbose_name='Откликнувшиеся'
+    )
+    selected_executor = models.ForeignKey(
+        TelegramUser,
+        on_delete=models.SET_NULL,
+        blank=True,
+        null=True,
+        related_name='assigned_tasks',
+        verbose_name='Выбранный исполнитель'
+    )
+    stage = models.CharField(
+        max_length=20,
+        choices=Stage.choices,
+        default=Stage.CREATED,
+        verbose_name='Этап задания'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+
+    def __str__(self):
+        return self.title
+
+    class Meta:
+        verbose_name = 'Задание'
+        verbose_name_plural = 'Задания'
