@@ -24,6 +24,10 @@ from tgbot.models import (
     SSHKey,
     TelegramBotToken,
     Server,
+    TelegramUser,
+    Tag,
+    PaymentTypeModel,
+    Task,
 )
 from tgbot.forms import SSHKeyAdminForm, SSHKeyChangeForm
 
@@ -72,9 +76,6 @@ class ServerAdminForm(forms.ModelForm):
         model = Server
         fields = '__all__'
 
-##############################
-# Server Admin формы
-##############################
 @admin.register(Server)
 class ServerAdmin(admin.ModelAdmin):
     form = ServerAdminForm
@@ -167,9 +168,8 @@ class ServerAdmin(admin.ModelAdmin):
     
 
 ##############################
-# SSHKey Admin формы
+# SSHKey Admin
 ##############################
-
 @admin.register(SSHKey)
 class SSHKeyAdmin(admin.ModelAdmin):
     list_display = ("key_name", "public_key", "created_at")
@@ -293,3 +293,35 @@ class SSHKeyAdmin(admin.ModelAdmin):
         else:
             kwargs["form"] = SSHKeyAdminForm
         return super().get_form(request, obj, **kwargs)
+
+# Configuration Admin
+@admin.register(Configuration)
+class ConfigurationAdmin(admin.ModelAdmin):
+    list_display = ('id', 'test_mode')
+    list_editable = ('test_mode',)
+    search_fields = ('id',)
+
+# TelegramUser Admin
+@admin.register(TelegramUser)
+class TelegramUserAdmin(admin.ModelAdmin):
+    list_display = ('chat_id', 'first_name', 'last_name', 'username', 'can_publish_tasks', 'created_at')
+    search_fields = ('chat_id', 'first_name', 'last_name', 'username')
+
+# Tag Admin
+@admin.register(Tag)
+class TagAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name')
+    search_fields = ('name',)
+
+# PaymentTypeModel Admin
+@admin.register(PaymentTypeModel)
+class PaymentTypeModelAdmin(admin.ModelAdmin):
+    list_display = ('id', 'name', 'description')
+    search_fields = ('name',)
+
+# Task Admin
+@admin.register(Task)
+class TaskAdmin(admin.ModelAdmin):
+    list_display = ('id', 'title', 'tag', 'creator', 'stage', 'created_at')
+    list_filter = ('stage', 'tag', 'payment_type')
+    search_fields = ('title', 'description')
