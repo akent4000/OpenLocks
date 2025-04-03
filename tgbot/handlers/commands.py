@@ -4,8 +4,9 @@ import subprocess
 import os
 import time
 
-from loguru_config import get_logger
-logger = get_logger()
+from loguru import logger
+logger.add("logs/commands.log", rotation="10 MB", level="INFO")
+
 
 from telebot.types import Message
 
