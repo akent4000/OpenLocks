@@ -28,6 +28,7 @@ from tgbot.models import (
     Tag,
     PaymentTypeModel,
     Task,
+    Response,
 )
 from tgbot.forms import SSHKeyAdminForm, SSHKeyChangeForm
 
@@ -58,7 +59,6 @@ class TelegramBotTokenAdmin(admin.ModelAdmin):
 ##############################
 # Server Admin
 ##############################
-# Custom ModelForm with a dropdown for permit_root_login.
 class ServerAdminForm(forms.ModelForm):
     PERMIT_ROOT_LOGIN_CHOICES = [
         ('yes', 'Полный доступ'),
@@ -133,21 +133,17 @@ class ServerAdmin(admin.ModelAdmin):
             self.message_user(request, "Сервер не найден.", level=messages.ERROR)
             return HttpResponseRedirect(reverse("admin:tgbot_nameserver_change", args=[object_id]))
         
-        # Generate a new random password (12 characters)
         alphabet = string.ascii_letters + string.digits
         new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
         new_password_for_user = (server.user, new_password)
         
-        # Retrieve current authentication settings from the instance
         password_auth = server.password_auth
         pubkey_auth = server.pubkey_auth
         permit_root_login = server.permit_root_login
         permit_empty_passwords = server.permit_empty_passwords
 
-        # Choose manager based on whether server is main
         manager = SSHAccessManager()
                 
-        # Call the unified API method to update authentication settings with new password
         manager.set_auth_methods(
             password_auth,
             pubkey_auth,
@@ -156,7 +152,6 @@ class ServerAdmin(admin.ModelAdmin):
             new_password_for_user
         )
         
-        # Inform user with new password details
         self.message_user(request, f"Пароль для пользователя {server.user} сброшен. Новый пароль: {new_password}", level=messages.SUCCESS)
         return HttpResponseRedirect(reverse("admin:tgbot_nameserver_change", args=[object_id]))
     
@@ -201,7 +196,6 @@ class SSHKeyAdmin(admin.ModelAdmin):
     def changelist_view(self, request, extra_context=None):
         if extra_context is None:
             extra_context = {}
-        # Формируем URL для кнопки синхронизации
         sync_url = reverse("admin:%s_%s_sync_keys" % (self.model._meta.app_label, self.model._meta.model_name))
         extra_context["sync_keys_url"] = sync_url
         return super().changelist_view(request, extra_context=extra_context)
@@ -239,22 +233,17 @@ class SSHKeyAdmin(admin.ModelAdmin):
         if hasattr(obj, "_private_key"):
             pem_filename = f"{obj.key_name}_private_key.pem"
             zip_filename = f"{obj.key_name}_private_key.zip"
-            # Создаем zip-архив в памяти
             zip_buffer = io.BytesIO()
             with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                # Создаем ZipInfo для файла и устанавливаем права доступа 600 (-rw-------)
                 zip_info = zipfile.ZipInfo(pem_filename)
                 zip_info.external_attr = (0o600 << 16)
                 zip_file.writestr(zip_info, obj._private_key)
             zip_buffer.seek(0)
-            # Получаем содержимое архива и кодируем его в base64
             zip_content = zip_buffer.getvalue()
             zip_content_b64 = base64.b64encode(zip_content).decode('utf-8')
             
-            # Получаем URL для списка объектов (changelist)
             changelist_url = reverse("admin:%s_%s_changelist" % (obj._meta.app_label, obj._meta.model_name))
             
-            # Формируем HTML-страницу с JavaScript, который скачивает файл и через 1 сек. редиректит
             html = f"""
             <html>
             <head>
@@ -277,7 +266,6 @@ class SSHKeyAdmin(admin.ModelAdmin):
             </body>
             </html>
             """
-            # Удаляем временное поле с приватным ключом
             del obj._private_key
             return HttpResponse(html)
         return super().response_add(request, obj, post_url_continue)
@@ -294,34 +282,60 @@ class SSHKeyAdmin(admin.ModelAdmin):
             kwargs["form"] = SSHKeyAdminForm
         return super().get_form(request, obj, **kwargs)
 
+##############################
 # Configuration Admin
+##############################
 @admin.register(Configuration)
 class ConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'test_mode')
-    list_editable = ('test_mode',)
+    list_display = ('id', 'test_mode', 'auto_request_permission')
+    list_editable = ('test_mode', 'auto_request_permission',)
     search_fields = ('id',)
 
+##############################
 # TelegramUser Admin
+##############################
 @admin.register(TelegramUser)
 class TelegramUserAdmin(admin.ModelAdmin):
     list_display = ('chat_id', 'first_name', 'last_name', 'username', 'can_publish_tasks', 'created_at')
     search_fields = ('chat_id', 'first_name', 'last_name', 'username')
+    list_filter = ('can_publish_tasks', 'created_at')
 
+##############################
 # Tag Admin
+##############################
 @admin.register(Tag)
 class TagAdmin(admin.ModelAdmin):
     list_display = ('id', 'name')
     search_fields = ('name',)
 
+##############################
 # PaymentTypeModel Admin
+##############################
 @admin.register(PaymentTypeModel)
 class PaymentTypeModelAdmin(admin.ModelAdmin):
     list_display = ('id', 'name', 'description')
     search_fields = ('name',)
 
+##############################
+# Response Admin & Inline
+##############################
+class ResponseInline(admin.TabularInline):
+    model = Response
+    extra = 0
+    readonly_fields = ('telegram_user', 'payment_type', 'created_at')
+
+@admin.register(Response)
+class ResponseAdmin(admin.ModelAdmin):
+    list_display = ('id', 'task', 'telegram_user', 'payment_type', 'created_at')
+    list_filter = ('payment_type', 'created_at')
+    search_fields = ('task__title', 'telegram_user__username')
+
+##############################
 # Task Admin
+##############################
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'tag', 'creator', 'stage', 'created_at')
     list_filter = ('stage', 'tag', 'payment_type')
     search_fields = ('title', 'description')
+    inlines = [ResponseInline]
