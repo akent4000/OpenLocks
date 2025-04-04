@@ -17,13 +17,24 @@ class Configuration(models.Model):
     """Модель для хранения текущей конфигурации"""
     
     test_mode = models.BooleanField(default=False, verbose_name='Включить тестовый режим')
+    auto_request_permission = models.BooleanField(
+        default=False,
+        verbose_name='Автоматически разрешать пользователям давать и принимать заявки'
+    )
 
     @staticmethod
-    def is_test_mode():
+    def get_is_test_mode():
         last_obj = Configuration.objects.last()
         if last_obj is None:
             return False
         return last_obj.test_mode
+    
+    @staticmethod
+    def get_auto_request_permission():
+        last_obj = Configuration.objects.last()
+        if last_obj is None:
+            return False
+        return last_obj.auto_request_permission
 
 class TelegramBotToken(models.Model):
     """Модель для хранения токена бота"""

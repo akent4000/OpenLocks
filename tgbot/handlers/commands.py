@@ -9,11 +9,9 @@ logger.add("logs/commands.log", rotation="10 MB", level="INFO")
 
 
 from telebot.types import Message
-
 from tgbot.dispatcher import bot
-
-from tgbot.models import TelegramUser
-
+from tgbot.models import TelegramUser, Configuration
+from tgbot.logics.start_message_handler import send_welcome_message
 
 @bot.message_handler(commands=['start'])
 def handle_start(message: Message):
@@ -36,6 +34,7 @@ def handle_start(message: Message):
                 'first_name': message.chat.first_name,
                 'last_name': message.chat.last_name,
                 'username': message.chat.username,
+                'can_publish_tasks': Configuration.get_auto_request_permission,
             })
         logger.info(f"User {user} created: {created}")
 
@@ -44,7 +43,8 @@ def handle_start(message: Message):
 
         else:
             logger.info(f"User {user} already exists")
-        bot.send_message(chat_id, "test", parse_mode='HTML')
+        
+        send_welcome_message(created=created, user=user)
 
     except Exception as e:
         logger.exception(e)

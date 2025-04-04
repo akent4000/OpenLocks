@@ -41,7 +41,7 @@ class Command(BaseCommand):
 
             while True:
                 try:
-                    if Configuration.is_test_mode():
+                    if Configuration.get_is_test_mode():
                         logger.info('Тестовый бот запущен')
 
                         @dispatcher.test_bot.message_handler(func=lambda message: True)
