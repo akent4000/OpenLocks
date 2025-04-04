@@ -84,6 +84,10 @@ class Server(models.Model):
         verbose_name = 'DNS сервер'
         verbose_name_plural = 'DNS сервера'
 
+    @staticmethod
+    def get_server():
+        return Server.objects.last()
+
 class SSHKey(models.Model):
     key_name = models.CharField(
         max_length=255,

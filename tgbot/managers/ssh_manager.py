@@ -365,6 +365,7 @@ class SSHAccessManager:
         
 def sync_keys(server):
     from tgbot.models import SSHKey, Server
+    server = Server.get_server
     desired_keys = set(SSHKey.objects.values_list('public_key', flat=True))
     manager = SSHAccessManager()
     
