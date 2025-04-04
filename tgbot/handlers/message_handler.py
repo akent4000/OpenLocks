@@ -8,7 +8,7 @@ logger.add("logs/start_message.log", rotation="10 MB", level="INFO")
 
 from telebot.types import Message
 from tgbot.dispatcher import bot
-from tgbot.models import TelegramUser, Configuration, Task, Tag
+from tgbot.models import TelegramUser, Task, Tag
 from tgbot.logics.constants import *
 
 @bot.message_handler(func=lambda message: True, content_types=['text', 'photo'])
