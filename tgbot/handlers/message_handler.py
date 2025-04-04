@@ -48,28 +48,22 @@ def handle_request(message: Message):
 
     logger.info(f"Получена валидная заявка от пользователя {message.chat.id}: '{text}'")
 
-    # Поиск пользователя в базе данных
     try:
         user = TelegramUser.objects.get(chat_id=message.chat.id)
     except TelegramUser.DoesNotExist:
         logger.error(f"Пользователь {message.chat.id} не найден. Заявка не сохранена.")
         return
 
-    # Определяем тег для задания. Предполагается, что хотя бы один тег существует.
-    tag = Tag.objects.first()
-    if not tag:
-        logger.error("Не найден ни один тег. Заявка не может быть сохранена.")
-        return
-
-    # Сохраняем задание в объект Task с добавлением всех file_id
     task = Task.objects.create(
-        tag=tag,
+        tag=None,
         title=text if len(text) <= 255 else text[:255],
         description=text,
-        payment_type=None,  # При необходимости можно указать тип оплаты
+        payment_type=None,
         creator=user,
-        stage=Task.Stage.CREATED,
+        stage=Task.Stage.PENDING,
         file_ids=file_ids
     )
     logger.info(f"Задание сохранено с id: {task.id}")
+
+    
 

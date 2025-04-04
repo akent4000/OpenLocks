@@ -152,11 +152,18 @@ class PaymentTypeModel(models.Model):
 class Task(models.Model):
     """Модель задания"""
     class Stage(models.TextChoices):
+        PENDING = 'pending', 'В ожидании'
         CREATED = 'created', 'Создано'
         EXECUTOR_CHOSEN = 'executor_chosen', 'Выбран исполнитель'
         CLOSED = 'closed', 'Задание закрыто'
 
-    tag = models.ForeignKey(Tag, on_delete=models.CASCADE, verbose_name='Тег')
+    tag = models.ForeignKey(
+        Tag, 
+        on_delete=models.CASCADE,  
+        blank=True,
+        null=True,
+        verbose_name='Тег',
+    )
     title = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(verbose_name='Текст задания')
     payment_type = models.ForeignKey(
@@ -183,7 +190,7 @@ class Task(models.Model):
     stage = models.CharField(
         max_length=20,
         choices=Stage.choices,
-        default=Stage.CREATED,
+        default=Stage.PENDING,
         verbose_name='Этап задания'
     )
     file_ids = models.JSONField(

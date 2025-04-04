@@ -1,5 +1,7 @@
 class CallbackData:
-    pass
+    TAG_SELECT = "tag_select"
+    TAG_ID = "tag_id"
+    TASK_ID = "task_id"
 class ButtonNames:
     CLOSE = "Закрыть"
     CANCEL = "Отменить"
