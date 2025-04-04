@@ -1,19 +1,6 @@
 class CallbackData:
-    START = "start"
-
-    RULES = "rules"
-    GENERAL_CHAT = "general_chat"
-    SUPPORT = "support"
-    REQUEST_PER_DAY = "request_per_day"
-
+    pass
 class ButtonNames:
-    START = "Старт"
-
-    RULES = "Правила"
-    GENERAL_CHAT = "Общий чат"
-    SUPPORT = "Админ"
-    REQUEST_PER_DAY = "Заявки за день"
-    
     CLOSE = "Закрыть"
     CANCEL = "Отменить"
     REPEAT = "Повторить" 
@@ -24,7 +11,7 @@ class Urls:
 
 class Messages:
     WELCOME_MESSAGE = f"""Для добавления напишите [админу]({Urls.SUPPORT})
-После добавления введите {ButtonNames.START}
+После добавления введите /start
 """
     CHAT_ACTIVE_MESSAGE = "Чат активен, вы можете принимать и отправлять заявки, приятного пользования"
     
