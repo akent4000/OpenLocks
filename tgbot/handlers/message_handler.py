@@ -8,6 +8,7 @@ from telebot.types import Message
 from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Task, Tag
 from tgbot.logics.constants import *
+from tgbot.logics.keyboards import *
 
 @bot.message_handler(func=lambda message: True, content_types=['text', 'photo', 'document', 'video'])
 def handle_request(message: Message):
@@ -65,5 +66,10 @@ def handle_request(message: Message):
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
-    
+    bot.send_message(
+        chat_id=message.chat.id,
+        reply_to_message_id=message.id,
+        reply_markup=tags_keyboard(task),
+        text="Выберите тэг задания"
+    )
 

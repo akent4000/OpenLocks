@@ -5,7 +5,7 @@ from tgbot.logics.constants import *
 from loguru import logger
 logger.add("logs/keyboards.log", rotation="10 MB", level="INFO")
 
-def tags_keyboard(task):
+def tags_keyboard(task: Task):
     tags = Tag.objects.all()
     if not tags:
         logger.error("Не найден ни один тег. Заявка не может быть сохранена.")
