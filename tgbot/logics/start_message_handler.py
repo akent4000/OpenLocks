@@ -21,11 +21,11 @@ def send_welcome_message(created: bool, user: TelegramUser) -> None:
     """
     if created or not user.can_publish_tasks:
         message_text = Messages.WELCOME_MESSAGE
-        sent_message = bot.send_message(user.chat_id, message_text)
+        sent_message = bot.send_message(user.chat_id, message_text, parse_mode="MarkdownV2")
         logger.info(f"Отправлено приветственное сообщение (WELCOME_MESSAGE) пользователю {user.chat_id}")
     else:
         message_text = Messages.CHAT_ACTIVE_MESSAGE
-        sent_message = bot.send_message(user.chat_id, message_text)
+        sent_message = bot.send_message(user.chat_id, message_text, parse_mode="MarkdownV2")
         logger.info(f"Отправлено активное сообщение (CHAT_ACTIVE_MESSAGE) пользователю {user.chat_id}")
         time.sleep(5)
         bot.delete_message(user.chat_id, sent_message.message_id)
