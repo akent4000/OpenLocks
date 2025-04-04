@@ -19,7 +19,7 @@ class Command(BaseCommand):
         
         # Функция, которая непрерывно пытается запустить polling для основного бота
         def run_main_bot():
-            from tgbot.handlers import commands, utils  # Импортируем обработчики
+            from tgbot.handlers import commands, message_handler, utils  # Импортируем обработчики
             while True:
                 try:
                     logger.info('Основной бот запущен')
@@ -32,8 +32,6 @@ class Command(BaseCommand):
                     time.sleep(1)
                     logger.info("Перезапуск основного бота...")
 
-        # Функция, которая непрерывно пытается запустить polling для тестового бота
-        # Функция, которая непрерывно пытается запустить polling для тестового бота
         def run_test_bot():
             if dispatcher.test_bot is None:
                 logger.warning("Тестовый бот не инициализирован. Поток run_test_bot завершён.")

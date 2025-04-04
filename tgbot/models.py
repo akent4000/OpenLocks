@@ -172,12 +172,6 @@ class Task(models.Model):
         related_name='created_tasks',
         verbose_name='Кто дал задание'
     )
-    applicants = models.ManyToManyField(
-        TelegramUser,
-        blank=True,
-        related_name='applied_tasks',
-        verbose_name='Откликнувшиеся'
-    )
     selected_executor = models.ForeignKey(
         TelegramUser,
         on_delete=models.SET_NULL,
@@ -192,6 +186,12 @@ class Task(models.Model):
         default=Stage.CREATED,
         verbose_name='Этап задания'
     )
+    file_ids = models.JSONField(
+        blank=True,
+        null=True,
+        default=list,
+        verbose_name='Список File IDs'
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
 
     def __str__(self):
@@ -200,3 +200,36 @@ class Task(models.Model):
     class Meta:
         verbose_name = 'Задание'
         verbose_name_plural = 'Задания'
+
+class Response(models.Model):
+    """
+    Модель отклика на задание.
+    Хранит в себе тип оплаты, пользователя и задание.
+    """
+    task = models.ForeignKey(
+        Task,
+        on_delete=models.CASCADE,
+        related_name='responses',
+        verbose_name='Задание'
+    )
+    telegram_user = models.ForeignKey(
+        TelegramUser,
+        on_delete=models.CASCADE,
+        related_name='responses',
+        verbose_name='Пользователь'
+    )
+    payment_type = models.ForeignKey(
+        PaymentTypeModel,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Тип оплаты'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания отклика')
+
+    def __str__(self):
+        return f"Отклик пользователя {self.telegram_user} на задание {self.task}"
+
+    class Meta:
+        verbose_name = 'Отклик'
+        verbose_name_plural = 'Отклики'

@@ -10,7 +10,7 @@ class Urls:
     SUPPORT = "https://t.me/OpenLocks_Support"
 
 class Messages:
-    WELCOME_MESSAGE = f"""Для добавления напишите [админу]({Urls.SUPPORT})
+    WELCOME_MESSAGE = f"""Для добавления напишите [Админу]({Urls.SUPPORT})
 После добавления введите /start
 """
     CHAT_ACTIVE_MESSAGE = "Чат активен, вы можете принимать и отправлять заявки, приятного пользования"
