@@ -10,6 +10,45 @@ from tgbot.logics.constants import *
 from telebot import REPLY_MARKUP_TYPES
 from telebot.types import InputMediaPhoto, InputMediaVideo
 
+def send_welcome_message(created: bool, user: TelegramUser) -> None:
+    """
+    Отправляет приветственное сообщение пользователю.
+    
+    Если пользователь только что создан или не имеет права публиковать задания,
+    отправляется сообщение Messages.WELCOME_MESSAGE.
+    Если же пользователь имеет право публиковать задания (can_publish_tasks == True),
+    отправляется сообщение Messages.CHAT_ACTIVE_MESSAGE, которое через 5 секунд удаляется.
+    
+    :param created: Флаг, указывающий, был ли пользователь только что создан.
+    :param user: Экземпляр модели TelegramUser.
+    """
+    try:
+        if created or not user.can_publish_tasks:
+            message_text = Messages.WELCOME_MESSAGE
+            try:
+                sent_message = bot.send_message(user.chat_id, message_text, parse_mode="MarkdownV2")
+                logger.info(f"Отправлено приветственное сообщение (WELCOME_MESSAGE) пользователю {user.chat_id}")
+            except Exception as e:
+                logger.error(f"Ошибка при отправке приветственного сообщения пользователю {user.chat_id}: {e}")
+        else:
+            message_text = Messages.CHAT_ACTIVE_MESSAGE
+            try:
+                sent_message = bot.send_message(user.chat_id, message_text, parse_mode="MarkdownV2")
+                logger.info(f"Отправлено активное сообщение (CHAT_ACTIVE_MESSAGE) пользователю {user.chat_id}")
+            except Exception as e:
+                logger.error(f"Ошибка при отправке активного сообщения пользователю {user.chat_id}: {e}")
+                return
+            time.sleep(5)
+            try:
+                bot.delete_message(user.chat_id, sent_message.message_id)
+                logger.info(f"Удалено активное сообщение для пользователя {user.chat_id}")
+            except Exception as e:
+                logger.error(f"Ошибка при удалении активного сообщения для пользователя {user.chat_id}: {e}")
+    except Exception as e:
+        logger.error(f"Общая ошибка при отправке приветственного сообщения пользователю {user.chat_id}: {e}")
+
+
+
 def send_dispatcher_task_message(
         task: Task,
         chat_id: int | str,
