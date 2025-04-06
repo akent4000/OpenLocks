@@ -28,6 +28,7 @@ from tgbot.models import (
     Tag,
     PaymentTypeModel,
     Task,
+    Files,
     Response,
 )
 from tgbot.forms import SSHKeyAdminForm, SSHKeyChangeForm
@@ -51,7 +52,11 @@ class TelegramBotTokenAdmin(admin.ModelAdmin):
         try:
             bot_instance = telebot.TeleBot(obj.token)
             bot_info = bot_instance.get_me()
-            return format_html('<a href="https://t.me/{}" target="_blank">https://t.me/{}</a>', bot_info.username, bot_info.username)
+            return format_html(
+                '<a href="https://t.me/{}" target="_blank">https://t.me/{}</a>',
+                bot_info.username,
+                bot_info.username,
+            )
         except Exception as e:
             return f"Ошибка: {e}"
     bot_link.short_description = "Ссылка на бота"
@@ -79,21 +84,13 @@ class ServerAdminForm(forms.ModelForm):
 @admin.register(Server)
 class ServerAdmin(admin.ModelAdmin):
     form = ServerAdminForm
-    list_display = (
-        'id', 'ip',
-    )
+    list_display = ('id', 'ip',)
     actions = ['sync_ssh_keys']
 
     fieldsets = (
-        (None, {
-            'fields': ('ip',)
-        }),
-        ('Настройки сервера', {
-            'fields': ('user',)
-        }),
-        ('SSH аутентификация', {
-            'fields': ('password_auth', 'pubkey_auth', 'permit_empty_passwords', 'permit_root_login')
-        }),
+        (None, {'fields': ('ip',)}),
+        ('Настройки сервера', {'fields': ('user',)}),
+        ('SSH аутентификация', {'fields': ('password_auth', 'pubkey_auth', 'permit_empty_passwords', 'permit_root_login')}),
     )
 
     @admin.action(description="Синхронизировать SSH ключи выбранных серверов")
@@ -137,18 +134,12 @@ class ServerAdmin(admin.ModelAdmin):
         new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
         new_password_for_user = (server.user, new_password)
         
-        password_auth = server.password_auth
-        pubkey_auth = server.pubkey_auth
-        permit_root_login = server.permit_root_login
-        permit_empty_passwords = server.permit_empty_passwords
-
         manager = SSHAccessManager()
-                
         manager.set_auth_methods(
-            password_auth,
-            pubkey_auth,
-            permit_root_login,
-            permit_empty_passwords,
+            server.password_auth,
+            server.pubkey_auth,
+            server.permit_root_login,
+            server.permit_empty_passwords,
             new_password_for_user
         )
         
@@ -160,7 +151,6 @@ class ServerAdmin(admin.ModelAdmin):
         extra_context['sync_ssh_keys_url'] = reverse("admin:nameserver_sync_ssh_keys", args=[object_id])
         extra_context['reset_password_url'] = reverse("admin:nameserver_reset_password", args=[object_id])
         return super().change_view(request, object_id, form_url, extra_context)
-    
 
 ##############################
 # SSHKey Admin
@@ -189,13 +179,11 @@ class SSHKeyAdmin(admin.ModelAdmin):
 
     def sync_keys(self, request):
         sync_keys()
-
         self.message_user(request, "SSH ключи успешно синхронизированы.", messages.SUCCESS)
         return redirect("..")
 
     def changelist_view(self, request, extra_context=None):
-        if extra_context is None:
-            extra_context = {}
+        extra_context = extra_context or {}
         sync_url = reverse("admin:%s_%s_sync_keys" % (self.model._meta.app_label, self.model._meta.model_name))
         extra_context["sync_keys_url"] = sync_url
         return super().changelist_view(request, extra_context=extra_context)
@@ -217,9 +205,7 @@ class SSHKeyAdmin(admin.ModelAdmin):
             key_type = form.cleaned_data.get("key_type", "rsa")
             bits = form.cleaned_data.get("bits") or 2048
 
-            result = manager.generate_ssh_key(
-                comment=comment, passphrase=passphrase, key_type=key_type, bits=bits
-            )
+            result = manager.generate_ssh_key(comment=comment, passphrase=passphrase, key_type=key_type, bits=bits)
             if result is None:
                 messages.error(request, "Ошибка генерации SSH ключа.")
                 return
@@ -255,7 +241,7 @@ class SSHKeyAdmin(admin.ModelAdmin):
                     document.body.appendChild(a);
                     a.click();
                     setTimeout(function() {{
-                    window.location.href = "{changelist_url}";
+                        window.location.href = "{changelist_url}";
                     }}, 1000);
                 }}
                 window.onload = downloadAndRedirect;
@@ -317,18 +303,21 @@ class PaymentTypeModelAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 ##############################
-# Response Admin & Inline
+# Files Inline для Task
+##############################
+class FilesInline(admin.TabularInline):
+    model = Files
+    extra = 0
+    readonly_fields = ('file_id', 'file_type', 'message_id', 'created_at')
+    can_delete = True
+
+##############################
+# Response Inline для Task
 ##############################
 class ResponseInline(admin.TabularInline):
     model = Response
     extra = 0
     readonly_fields = ('telegram_user', 'payment_type', 'created_at')
-
-@admin.register(Response)
-class ResponseAdmin(admin.ModelAdmin):
-    list_display = ('id', 'task', 'telegram_user', 'payment_type', 'created_at')
-    list_filter = ('payment_type', 'created_at')
-    search_fields = ('task__title', 'telegram_user__username')
 
 ##############################
 # Task Admin
@@ -338,4 +327,5 @@ class TaskAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'tag', 'creator', 'stage', 'created_at')
     list_filter = ('stage', 'tag', 'payment_type')
     search_fields = ('title', 'description')
-    inlines = [ResponseInline]
+    readonly_fields = ('dispatcher_text',)
+    inlines = [FilesInline, ResponseInline]
