@@ -7,7 +7,7 @@ from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Task, Tag, Files
 from tgbot.logics.constants import *
 from tgbot.logics.keyboards import tags_keyboard
-from tgbot.logics.messages import send_dispatcher_task_message
+from tgbot.logics.messages import send_dispatcher_task_message, send_welcome_message
 
 # Настройка логгера
 logger.add("logs/message_handler.log", rotation="10 MB", level="INFO")
@@ -23,20 +23,24 @@ def process_pending_text(chat_id: int, message: Message, text: str):
     """
     Обрабатывает текстовое сообщение, если в течение ожидания не пришла media group.
     """
-    # Убираем ожидающее сообщение из кэша
     pending_text_messages.pop(chat_id, None)
     
     if len(text) < 13:
         logger.info(f"Заявка от пользователя {chat_id} слишком короткая: '{text}'")
         return
 
-    logger.info(f"Получена валидная заявка от пользователя {chat_id} (только текст): '{text}'")
     try:
         user = TelegramUser.objects.get(chat_id=chat_id)
     except TelegramUser.DoesNotExist:
         logger.error(f"Пользователь {chat_id} не найден. Заявка не сохранена.")
         return
 
+    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
+    if not user.can_publish_tasks:
+        send_welcome_message(created=False, user=user)
+        return
+
+    logger.info(f"Получена валидная заявка от пользователя {chat_id} (только текст): '{text}'")
     task = Task.objects.create(
         tag=None,
         title=text if len(text) <= 255 else text[:255],
@@ -63,7 +67,7 @@ def process_media_group(media_group_id: str):
     При сохранении для фото выбирается вариант с наивысшим разрешением.
     """
     messages = media_group_cache.pop(media_group_id, [])
-    files = []  # Здесь будем хранить список словарей с file_id и типом файла
+    files = []  # Список словарей с file_id и типом файла
     text = None
     chat_id = messages[0].chat.id
 
@@ -74,7 +78,6 @@ def process_media_group(media_group_id: str):
         text = pending_text
 
     for message in messages:
-        # Если в media group есть подпись и текст еще не определен, используем её
         if message.caption and not text:
             text = message.caption.strip()
 
@@ -93,13 +96,18 @@ def process_media_group(media_group_id: str):
         logger.info(f"Media group с короткой подписью: '{text}'. Заявка не обработана.")
         return
 
-    logger.info(f"Получена валидная заявка из media group: '{text}'")
     try:
         user = TelegramUser.objects.get(chat_id=chat_id)
     except TelegramUser.DoesNotExist:
         logger.error(f"Пользователь {chat_id} не найден. Заявка не сохранена.")
         return
 
+    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
+    if not user.can_publish_tasks:
+        send_welcome_message(created=False, user=user)
+        return
+
+    logger.info(f"Получена валидная заявка из media group: '{text}'")
     task = Task.objects.create(
         tag=None,
         title=text if len(text) <= 255 else text[:255],
@@ -110,7 +118,6 @@ def process_media_group(media_group_id: str):
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
-    # Сохраняем файлы в отдельной модели Files
     for f in files:
         Files.objects.create(
             task=task,
@@ -134,18 +141,16 @@ def handle_media_group(message: Message):
     Через небольшую задержку (например, 1 секунда) все сообщения группы обрабатываются вместе.
     """
     media_group_id = message.media_group_id
-
     if media_group_id not in media_group_cache:
         media_group_cache[media_group_id] = []
         threading.Timer(1.0, process_media_group, args=[media_group_id]).start()
-
     media_group_cache[media_group_id].append(message)
 
 @bot.message_handler(func=lambda message: message.media_group_id is None, content_types=['text', 'photo', 'document', 'video'])
 def handle_single_message(message: Message):
     """
     Обработчик одиночных сообщений (не входящих в media group).
-    Если сообщение является чисто текстовым, оно помещается во временный кэш и ждет,
+    Если сообщение является чисто текстовым, оно помещается во временный кэш и ждёт,
     чтобы, возможно, объединиться с последующей media group.
     Если сообщение содержит медиа (с подписью), обрабатывается сразу.
     """
@@ -175,13 +180,18 @@ def handle_single_message(message: Message):
         logger.info(f"Заявка от пользователя {message.chat.id} слишком короткая: '{text}'")
         return
 
-    logger.info(f"Получена валидная заявка от пользователя {message.chat.id}: '{text}'")
     try:
         user = TelegramUser.objects.get(chat_id=message.chat.id)
     except TelegramUser.DoesNotExist:
         logger.error(f"Пользователь {message.chat.id} не найден. Заявка не сохранена.")
         return
 
+    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
+    if not user.can_publish_tasks:
+        send_welcome_message(created=False, user=user)
+        return
+
+    logger.info(f"Получена валидная заявка от пользователя {message.chat.id}: '{text}'")
     task = Task.objects.create(
         tag=None,
         title=text if len(text) <= 255 else text[:255],
