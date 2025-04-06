@@ -68,7 +68,6 @@ def send_dispatcher_task_message(
     try:
         # Получаем список файлов, связанных с задачей
         files_qs = list(task.files.all())
-        logger.info("".join(files_qs))
         # Если файлов нет, отправляем только текст
         if not files_qs:
             try:
