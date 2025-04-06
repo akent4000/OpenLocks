@@ -10,7 +10,7 @@ from tgbot.logics.keyboards import tags_keyboard
 from tgbot.logics.messages import send_dispatcher_task_message
 
 # Настройка логгера
-logger.add("logs/start_message.log", rotation="10 MB", level="INFO")
+logger.add("logs/message_handler.log", rotation="10 MB", level="INFO")
 
 # Глобальный кэш для сообщений media group
 media_group_cache = {}
