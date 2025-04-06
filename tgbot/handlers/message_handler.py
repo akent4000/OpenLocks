@@ -1,28 +1,101 @@
 import os
 import time
-
+import threading
 from loguru import logger
-logger.add("logs/start_message.log", rotation="10 MB", level="INFO")
-
 from telebot.types import Message
 from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Task, Tag
 from tgbot.logics.constants import *
-from tgbot.logics.keyboards import *
+from tgbot.logics.keyboards import tags_keyboard
 
-@bot.message_handler(func=lambda message: True, content_types=['text', 'photo', 'document', 'video'])
-def handle_request(message: Message):
-    """
-    Обработчик заявок, отправленных пользователями.
+# Настройка логгера
+logger.add("logs/start_message.log", rotation="10 MB", level="INFO")
 
-    Если пользователь отправляет текстовое сообщение или сообщение с медиа (фото, документ, видео)
-    с подписью (caption), содержащей менее 13 символов, заявка не обрабатывается.
-    В противном случае, заявка сохраняется как задание в объект Task, причем все file_id из медиа добавляются.
+# Глобальный кэш для сообщений media group
+media_group_cache = {}
+
+def process_media_group(media_group_id: str):
     """
-    file_ids = []
-    
-    # Определяем текст заявки: если это текстовое сообщение – берём message.text,
-    # для остальных типов (фото, документ, видео) требуется наличие caption.
+    Обрабатывает все сообщения, относящиеся к одному media group.
+    Собирает только файлы и подпись (caption) из сообщений.
+    При сохранении для фото выбирается вариант с наивысшим разрешением.
+    """
+    messages = media_group_cache.pop(media_group_id, [])
+    files = []
+    text = None
+
+    for message in messages:
+        # Используем первую найденную подпись как текст заявки
+        if message.caption and not text:
+            text = message.caption.strip()
+
+        # Если тип сообщения photo, сохраняем только фото в самом высоком разрешении
+        if message.content_type == 'photo' and message.photo:
+            highest_res_photo = message.photo[-1]
+            files.append({"file_id": highest_res_photo.file_id, "type": "photo"})
+        elif message.content_type == 'document' and message.document:
+            files.append({"file_id": message.document.file_id, "type": "document"})
+        elif message.content_type == 'video' and message.video:
+            files.append({"file_id": message.video.file_id, "type": "video"})
+
+    if not text:
+        logger.info("Media group без подписи. Заявка не обработана.")
+        return
+    if len(text) < 13:
+        logger.info(f"Media group с короткой подписью: '{text}'. Заявка не обработана.")
+        return
+
+    logger.info(f"Получена валидная заявка из media group: '{text}'")
+
+    try:
+        user = TelegramUser.objects.get(chat_id=messages[0].chat.id)
+    except TelegramUser.DoesNotExist:
+        logger.error(f"Пользователь {messages[0].chat.id} не найден. Заявка не сохранена.")
+        return
+
+    task = Task.objects.create(
+        tag=None,
+        title=text if len(text) <= 255 else text[:255],
+        description=text,
+        payment_type=None,
+        creator=user,
+        stage=Task.Stage.PENDING,
+        files=files
+    )
+    logger.info(f"Задание сохранено с id: {task.id}")
+
+    message_to_edit = bot.send_message(
+        chat_id=messages[0].chat.id,
+        reply_to_message_id=messages[0].id,
+        reply_markup=tags_keyboard(task),
+        text="Выберите тэг задания"
+    )
+    task.message_to_edit_id = message_to_edit.id
+    task.save()
+
+@bot.message_handler(func=lambda message: message.media_group_id is not None, content_types=['photo', 'video', 'document'])
+def handle_media_group(message: Message):
+    """
+    Обработчик для сообщений, входящих в media group.
+    Если сообщение имеет media_group_id, оно добавляется в кэш.
+    Через небольшую задержку все сообщения группы обрабатываются вместе.
+    """
+    media_group_id = message.media_group_id
+
+    if media_group_id not in media_group_cache:
+        media_group_cache[media_group_id] = []
+        threading.Timer(1.0, process_media_group, args=[media_group_id]).start()
+
+    media_group_cache[media_group_id].append(message)
+
+@bot.message_handler(func=lambda message: message.media_group_id is None, content_types=['text', 'photo', 'document', 'video'])
+def handle_single_message(message: Message):
+    """
+    Обработчик одиночных сообщений (не входящих в media group).
+    Сохраняет файлы, выбирая для фото вариант с самым высоким разрешением.
+    """
+    files = []
+
     if message.content_type == 'text':
         text = message.text.strip()
     else:
@@ -32,17 +105,14 @@ def handle_request(message: Message):
             logger.info(f"Сообщение от пользователя {message.chat.id} без подписи. Заявка не обработана.")
             return
 
-    # Собираем все file_id из сообщения, если они присутствуют
     if message.content_type == 'photo' and message.photo:
-        # Для фото добавляем все варианты, если необходимо (в основном нужен последний, но можно сохранить и все)
-        for photo in message.photo:
-            file_ids.append(photo.file_id)
+        highest_res_photo = message.photo[-1]
+        files.append({"file_id": highest_res_photo.file_id, "type": "photo"})
     if message.content_type == 'document' and message.document:
-        file_ids.append(message.document.file_id)
+        files.append({"file_id": message.document.file_id, "type": "document"})
     if message.content_type == 'video' and message.video:
-        file_ids.append(message.video.file_id)
+        files.append({"file_id": message.video.file_id, "type": "video"})
 
-    # Проверка длины текста
     if len(text) < 13:
         logger.info(f"Заявка от пользователя {message.chat.id} слишком короткая: '{text}'")
         return
@@ -62,14 +132,15 @@ def handle_request(message: Message):
         payment_type=None,
         creator=user,
         stage=Task.Stage.PENDING,
-        file_ids=file_ids
+        files=files
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
-    bot.send_message(
+    message_to_edit = bot.send_message(
         chat_id=message.chat.id,
         reply_to_message_id=message.id,
         reply_markup=tags_keyboard(task),
         text="Выберите тэг задания"
     )
-
+    task.message_to_edit_id = message_to_edit.id
+    task.save()

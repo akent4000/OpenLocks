@@ -193,14 +193,18 @@ class Task(models.Model):
         default=Stage.PENDING,
         verbose_name='Этап задания'
     )
-    file_ids = models.JSONField(
+    files = models.JSONField(
         blank=True,
         null=True,
         default=list,
-        verbose_name='Список File IDs'
+        verbose_name='Список Файлов'
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-
+    message_to_edit_id = models.IntegerField(
+        blank=True,
+        null=True,
+        verbose_name='ID сообщения для редактирования'
+    )
     def __str__(self):
         return self.title
 

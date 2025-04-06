@@ -11,7 +11,7 @@ logger.add("logs/commands.log", rotation="10 MB", level="INFO")
 from telebot.types import Message
 from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Configuration
-from tgbot.logics.start_message_handler import send_welcome_message
+from tgbot.logics.messages import send_welcome_message
 
 @bot.message_handler(commands=['start'])
 def handle_start(message: Message):
