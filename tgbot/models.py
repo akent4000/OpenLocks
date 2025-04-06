@@ -157,7 +157,7 @@ class PaymentTypeModel(models.Model):
 class Task(models.Model):
     """Модель задания"""
     class Stage(models.TextChoices):
-        PENDING = 'pending', 'В ожидании'
+        PENDING_TAG = 'pending_tag', 'В ожидании выбора тэга'
         CREATED = 'created', 'Создано'
         EXECUTOR_CHOSEN = 'executor_chosen', 'Выбран исполнитель'
         CLOSED = 'closed', 'Задание закрыто'
@@ -195,7 +195,7 @@ class Task(models.Model):
     stage = models.CharField(
         max_length=20,
         choices=Stage.choices,
-        default=Stage.PENDING,
+        default=Stage.PENDING_TAG,
         verbose_name='Этап задания'
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')

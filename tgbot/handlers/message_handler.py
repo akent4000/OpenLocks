@@ -43,18 +43,17 @@ def process_pending_text(chat_id: int, message: Message, text: str):
         description=text,
         payment_type=None,
         creator=user,
-        stage=Task.Stage.PENDING
+        stage=Task.Stage.PENDING_TAG
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
-    message_to_edit = bot.send_message(
-        chat_id=chat_id,
-        reply_to_message_id=message.id,
-        reply_markup=tags_keyboard(task),
-        text="Выберите тэг задания"
+    send_dispatcher_task_message(
+        task=task, 
+        chat_id=chat_id, 
+        reply_to_message_id=message.id, 
+        reply_markup=tags_keyboard(task), 
+        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
     )
-    task.message_to_edit_id = message_to_edit.id
-    task.save()
 
 def process_media_group(media_group_id: str):
     """
@@ -107,7 +106,7 @@ def process_media_group(media_group_id: str):
         description=text,
         payment_type=None,
         creator=user,
-        stage=Task.Stage.PENDING
+        stage=Task.Stage.PENDING_TAG
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
@@ -119,14 +118,13 @@ def process_media_group(media_group_id: str):
             file_type=f["type"]
         )
     
-    message_to_edit = bot.send_message(
-        chat_id=chat_id,
-        reply_to_message_id=messages[0].id,
-        reply_markup=tags_keyboard(task),
-        text="Выберите тэг задания"
+    send_dispatcher_task_message(
+        task=task, 
+        chat_id=chat_id, 
+        reply_to_message_id=messages[0].id, 
+        reply_markup=tags_keyboard(task), 
+        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
     )
-    task.message_to_edit_id = message_to_edit.id
-    task.save()
 
 @bot.message_handler(func=lambda message: message.media_group_id is not None, content_types=['photo', 'video', 'document'])
 def handle_media_group(message: Message):
@@ -151,7 +149,6 @@ def handle_single_message(message: Message):
     чтобы, возможно, объединиться с последующей media group.
     Если сообщение содержит медиа (с подписью), обрабатывается сразу.
     """
-    # Если сообщение является чисто текстовым, откладываем его обработку
     if message.content_type == 'text':
         text = message.text.strip()
         timer = threading.Timer(2.0, process_pending_text, args=[message.chat.id, message, text])
@@ -159,7 +156,6 @@ def handle_single_message(message: Message):
         timer.start()
         return
 
-    # Если сообщение содержит медиа, обрабатываем сразу
     files = []
     if message.caption:
         text = message.caption.strip()
@@ -192,11 +188,10 @@ def handle_single_message(message: Message):
         description=text,
         payment_type=None,
         creator=user,
-        stage=Task.Stage.PENDING
+        stage=Task.Stage.PENDING_TAG
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
-    # Сохраняем файлы, если они есть, в модель Files
     for f in files:
         Files.objects.create(
             task=task,
@@ -208,6 +203,6 @@ def handle_single_message(message: Message):
         task=task, 
         chat_id=message.chat.id, 
         reply_to_message_id=message.id, 
-        reply_markup=tags_keyboard, 
+        reply_markup=tags_keyboard(task), 
         text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
     )

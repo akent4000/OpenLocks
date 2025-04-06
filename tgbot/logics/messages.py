@@ -2,7 +2,7 @@ import time
 from typing import List, Optional
 
 from loguru import logger
-logger.add("logs/start_message.log", rotation="10 MB", level="INFO")
+logger.add("logs/messages.log", rotation="10 MB", level="INFO")
 
 from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Task, Files
