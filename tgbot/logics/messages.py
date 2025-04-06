@@ -69,7 +69,7 @@ def send_dispatcher_task_message(
         # Получаем список файлов, связанных с задачей
         files_qs = list(task.files.all())
         print(files_qs)
-        
+        print(1)
         # Если файлов нет, отправляем только текст
         if not files_qs:
             try:
