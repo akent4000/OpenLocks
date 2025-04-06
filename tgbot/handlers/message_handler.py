@@ -132,7 +132,7 @@ def handle_media_group(message: Message):
 
     if media_group_id not in media_group_cache:
         media_group_cache[media_group_id] = []
-        threading.Timer(2.0, process_media_group, args=[media_group_id]).start()
+        threading.Timer(1.0, process_media_group, args=[media_group_id]).start()
 
     media_group_cache[media_group_id].append(message)
 
