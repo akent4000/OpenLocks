@@ -3,7 +3,7 @@ from telebot.types import CallbackQuery
 from tgbot.dispatcher import bot
 from tgbot.models import Tag, Task
 from tgbot.logics.constants import *
-from tgbot.logics.messages import send_dispatcher_task_message
+from tgbot.logics.messages import edit_dispatcher_task_message
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith("tag_select?"))
 def handle_tag_selection(call: CallbackQuery):
@@ -55,4 +55,8 @@ def handle_tag_selection(call: CallbackQuery):
     task.save()
     
     bot.answer_callback_query(call.id, f"Заявка обновлена: выбран тег '{tag.name}'.")
-    send_dispatcher_task_message(task=task, chat_id=call.message.chat.id, reply_to_message_id=None)
+    edit_dispatcher_task_message(
+        task=task, 
+        chat_id=call.message.chat.id, 
+        new_text=task.dispatcher_text
+    )

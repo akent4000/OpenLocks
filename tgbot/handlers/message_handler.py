@@ -4,9 +4,10 @@ import threading
 from loguru import logger
 from telebot.types import Message
 from tgbot.dispatcher import bot
-from tgbot.models import TelegramUser, Task, Tag
+from tgbot.models import TelegramUser, Task, Tag, Files
 from tgbot.logics.constants import *
 from tgbot.logics.keyboards import tags_keyboard
+from tgbot.logics.messages import send_dispatcher_task_message
 
 # Настройка логгера
 logger.add("logs/start_message.log", rotation="10 MB", level="INFO")
@@ -42,8 +43,7 @@ def process_pending_text(chat_id: int, message: Message, text: str):
         description=text,
         payment_type=None,
         creator=user,
-        stage=Task.Stage.PENDING,
-        files=[]
+        stage=Task.Stage.PENDING
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
@@ -64,7 +64,7 @@ def process_media_group(media_group_id: str):
     При сохранении для фото выбирается вариант с наивысшим разрешением.
     """
     messages = media_group_cache.pop(media_group_id, [])
-    files = []
+    files = []  # Здесь будем хранить список словарей с file_id и типом файла
     text = None
     chat_id = messages[0].chat.id
 
@@ -107,11 +107,18 @@ def process_media_group(media_group_id: str):
         description=text,
         payment_type=None,
         creator=user,
-        stage=Task.Stage.PENDING,
-        files=files
+        stage=Task.Stage.PENDING
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
+    # Сохраняем файлы в отдельной модели Files
+    for f in files:
+        Files.objects.create(
+            task=task,
+            file_id=f["file_id"],
+            file_type=f["type"]
+        )
+    
     message_to_edit = bot.send_message(
         chat_id=chat_id,
         reply_to_message_id=messages[0].id,
@@ -185,16 +192,22 @@ def handle_single_message(message: Message):
         description=text,
         payment_type=None,
         creator=user,
-        stage=Task.Stage.PENDING,
-        files=files
+        stage=Task.Stage.PENDING
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
-    message_to_edit = bot.send_message(
-        chat_id=message.chat.id,
-        reply_to_message_id=message.id,
-        reply_markup=tags_keyboard(task),
-        text="Выберите тэг задания"
+    # Сохраняем файлы, если они есть, в модель Files
+    for f in files:
+        Files.objects.create(
+            task=task,
+            file_id=f["file_id"],
+            file_type=f["type"]
+        )
+
+    send_dispatcher_task_message(
+        task=task, 
+        chat_id=message.chat.id, 
+        reply_to_message_id=message.id, 
+        reply_markup=tags_keyboard, 
+        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
     )
-    task.message_to_edit_id = message_to_edit.id
-    task.save()

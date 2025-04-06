@@ -13,6 +13,7 @@ import subprocess
 from loguru import logger
 logger.add("logs/models.log", rotation="10 MB", level="INFO")
 
+
 class Configuration(models.Model):
     """Модель для хранения текущей конфигурации"""
     
@@ -35,6 +36,7 @@ class Configuration(models.Model):
         if last_obj is None:
             return False
         return last_obj.auto_request_permission
+
 
 class TelegramBotToken(models.Model):
     """Модель для хранения токена бота"""
@@ -63,6 +65,7 @@ class TelegramBotToken(models.Model):
         verbose_name = 'Токен бота'
         verbose_name_plural = 'Токены ботов'
 
+
 class Server(models.Model):
     """Модель для хранения серверов."""
     ip = models.CharField(max_length=255, verbose_name='IP сервера')
@@ -88,6 +91,7 @@ class Server(models.Model):
     def get_server():
         return Server.objects.last()
 
+
 class SSHKey(models.Model):
     key_name = models.CharField(
         max_length=255,
@@ -106,6 +110,7 @@ class SSHKey(models.Model):
     class Meta:
         verbose_name = 'SSH ключ'
         verbose_name_plural = 'SSH ключи'
+
 
 class TelegramUser(models.Model):
     """Модель пользователя Telegram"""
@@ -193,24 +198,46 @@ class Task(models.Model):
         default=Stage.PENDING,
         verbose_name='Этап задания'
     )
-    files = models.JSONField(
-        blank=True,
-        null=True,
-        default=list,
-        verbose_name='Список Файлов'
-    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
     message_to_edit_id = models.IntegerField(
         blank=True,
         null=True,
         verbose_name='ID сообщения для редактирования'
     )
+    
     def __str__(self):
         return self.title
-
+    
+    @property
+    def dispatcher_text(self):
+        tag_text = f"\n*Тэг:* {self.tag.name}" if self.tag else ""
+        return f"*Ваша заявка №{self.id}:*{tag_text}\n*Описание:* {self.description}\n"
+    
     class Meta:
         verbose_name = 'Задание'
         verbose_name_plural = 'Задания'
+
+
+class Files(models.Model):
+    """Модель для хранения файлов, прикреплённых к заданию."""
+    FILE_TYPE_CHOICES = [
+        ('photo', 'Фото'),
+        ('video', 'Видео'),
+        ('document', 'Документ'),
+    ]
+    task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='files', verbose_name='Задание')
+    file_id = models.CharField(max_length=255, verbose_name='ID файла')
+    file_type = models.CharField(max_length=50, choices=FILE_TYPE_CHOICES, verbose_name='Тип файла')
+    message_id = models.IntegerField(blank=True, null=True, verbose_name='ID сообщения')
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+
+    def __str__(self):
+        return f"{self.get_file_type_display()} - {self.file_id}"
+
+    class Meta:
+        verbose_name = 'Файл'
+        verbose_name_plural = 'Файлы'
+
 
 class Response(models.Model):
     """
