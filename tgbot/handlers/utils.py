@@ -63,7 +63,7 @@ def handle_tag_selection(call: CallbackQuery):
         task=task, 
         chat_id=call.message.chat.id, 
         new_text=task.dispatcher_text,
-        new_reply_markup=dispather_task()
+        new_reply_markup=dispather_task(task=task)
     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_CANCEL}?"))
@@ -106,11 +106,10 @@ def handle_task_cancel(call: CallbackQuery):
     # Обновляем диспетчерское сообщение перед удалением
     cancel_text = f"*Ваша заявка №{task.id} отменена*"
     try:
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=task.message_to_edit_id,
-            text=cancel_text,
-            parse_mode="MarkdownV2"
+        edit_dispatcher_task_message(
+            task=task, 
+            chat_id=call.message.chat.id, 
+            new_text=cancel_text,
         )
     except Exception as e:
         logger.error(f"Ошибка при редактировании dispatcher сообщения для задачи {task.id}: {e}")
@@ -149,11 +148,10 @@ def handle_task_close(call: CallbackQuery):
 
     close_text = f"*Ваша заявка №{task.id} закрыта*"
     try:
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=task.message_to_edit_id,
-            text=close_text,
-            parse_mode="MarkdownV2"
+        edit_dispatcher_task_message(
+            task=task, 
+            chat_id=call.message.chat.id, 
+            new_text=close_text,
         )
     except Exception as e:
         logger.error(f"Ошибка при редактировании dispatcher сообщения для закрытия задачи {task.id}: {e}")
@@ -185,11 +183,11 @@ def handle_task_repeat(call: CallbackQuery):
 
     repeat_text = f"*Ваша заявка №{task.id} повторно выложена*"
     try:
-        bot.edit_message_text(
-            chat_id=call.message.chat.id,
-            message_id=task.message_to_edit_id,
-            text=repeat_text,
-            parse_mode="MarkdownV2"
+        edit_dispatcher_task_message(
+            task=task, 
+            chat_id=call.message.chat.id, 
+            new_text=repeat_text,
+            new_reply_markup=dispather_task(task=task)
         )
     except Exception as e:
         logger.error(f"Ошибка при редактировании dispatcher сообщения для повторной выкладки задачи {task.id}: {e}")
