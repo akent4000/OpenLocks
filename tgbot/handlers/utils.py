@@ -1,218 +1,196 @@
-import os
-import time
-import threading
-from loguru import logger
-from telebot.types import Message
+import urllib.parse
+from telebot.types import CallbackQuery
 from tgbot.dispatcher import bot
-from tgbot.models import TelegramUser, Task, Tag, Files
+from tgbot.models import Tag, Task
 from tgbot.logics.constants import *
-from tgbot.logics.keyboards import tags_keyboard
-from tgbot.logics.messages import send_dispatcher_task_message, send_welcome_message
+from tgbot.logics.messages import edit_dispatcher_task_message
+from tgbot.logics.keyboards import dispather_task
 
-# Настройка логгера
-logger.add("logs/message_handler.log", rotation="10 MB", level="INFO")
+from loguru import logger
+logger.add("logs/utils.log", rotation="10 MB", level="INFO")
 
-# Глобальный кэш для сообщений media group
-media_group_cache = {}
-
-# Глобальный кэш для ожидающих текстовых сообщений
-# Ключ – chat_id, значение – кортеж (text, message, timer)
-pending_text_messages = {}
-
-def process_pending_text(chat_id: int, message: Message, text: str):
+@bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TAG_SELECT}?"))
+def handle_tag_selection(call: CallbackQuery):
     """
-    Обрабатывает текстовое сообщение, если в течение ожидания не пришла media group.
-    """
-    pending_text_messages.pop(chat_id, None)
+    Обработчик выбора тега через inline-кнопку.
     
-    if len(text) < 13:
-        logger.info(f"Заявка от пользователя {chat_id} слишком короткая: '{text}'")
-        return
-
-    try:
-        user = TelegramUser.objects.get(chat_id=chat_id)
-    except TelegramUser.DoesNotExist:
-        logger.error(f"Пользователь {chat_id} не найден. Заявка не сохранена.")
-        return
-
-    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
-    if not user.can_publish_tasks:
-        send_welcome_message(created=False, user=user)
-        return
-
-    logger.info(f"Получена валидная заявка от пользователя {chat_id} (только текст): '{text}'")
-    task = Task.objects.create(
-        tag=None,
-        title=text if len(text) <= 255 else text[:255],
-        description=text,
-        payment_type=None,
-        creator=user,
-        stage=Task.Stage.PENDING_TAG
-    )
-    logger.info(f"Задание сохранено с id: {task.id}")
-
-    send_dispatcher_task_message(
-        task=task, 
-        chat_id=chat_id, 
-        reply_to_message_id=message.id, 
-        reply_markup=tags_keyboard(task), 
-        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
-    )
-
-def process_media_group(media_group_id: str):
-    """
-    Обрабатывает все сообщения, относящиеся к одному media group.
-    Собирает файлы и подпись из сообщений.
-    Если для этого чата ранее было получено текстовое сообщение, оно используется в качестве подписи.
-    При сохранении для фото выбирается вариант с наивысшим разрешением.
-    """
-    messages = media_group_cache.pop(media_group_id, [])
-    files = []  # Список словарей с file_id и типом файла
-    text = None
-    chat_id = messages[0].chat.id
-
-    # Если для этого чата уже есть ожидающее текстовое сообщение, используем его
-    if chat_id in pending_text_messages:
-        pending_text, pending_msg, timer = pending_text_messages.pop(chat_id)
-        timer.cancel()
-        text = pending_text
-
-    for message in messages:
-        if message.caption and not text:
-            text = message.caption.strip()
-
-        if message.content_type == 'photo' and message.photo:
-            highest_res_photo = message.photo[-1]
-            files.append({"file_id": highest_res_photo.file_id, "type": "photo"})
-        elif message.content_type == 'document' and message.document:
-            files.append({"file_id": message.document.file_id, "type": "document"})
-        elif message.content_type == 'video' and message.video:
-            files.append({"file_id": message.video.file_id, "type": "video"})
-
-    if not text:
-        logger.info("Media group без подписи. Заявка не обработана.")
-        return
-    if len(text) < 13:
-        logger.info(f"Media group с короткой подписью: '{text}'. Заявка не обработана.")
-        return
-
-    try:
-        user = TelegramUser.objects.get(chat_id=chat_id)
-    except TelegramUser.DoesNotExist:
-        logger.error(f"Пользователь {chat_id} не найден. Заявка не сохранена.")
-        return
-
-    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
-    if not user.can_publish_tasks:
-        send_welcome_message(created=False, user=user)
-        return
-
-    logger.info(f"Получена валидная заявка из media group: '{text}'")
-    task = Task.objects.create(
-        tag=None,
-        title=text if len(text) <= 255 else text[:255],
-        description=text,
-        payment_type=None,
-        creator=user,
-        stage=Task.Stage.PENDING_TAG
-    )
-    logger.info(f"Задание сохранено с id: {task.id}")
-
-    for f in files:
-        Files.objects.create(
-            task=task,
-            file_id=f["file_id"],
-            file_type=f["type"]
-        )
+    Callback data имеет формат:
+        "tag_select?tag_id={tag.id}&task_id={task.id}"
     
-    send_dispatcher_task_message(
+    Из callback data извлекаются параметры tag_id и task_id.
+    По ним определяется выбранный тег и обновляется существующая заявка:
+    - заменяется тег,
+    - устанавливается stage в Task.Stage.CREATED.
+    """
+    query_string = call.data.split("?", 1)[1]
+    params = urllib.parse.parse_qs(query_string)
+    
+    tag_id_list = params.get(CallbackData.TAG_ID)
+    task_id_list = params.get(CallbackData.TASK_ID)
+    
+    if not tag_id_list or not task_id_list:
+        bot.answer_callback_query(call.id, "Ошибка: отсутствуют параметры.")
+        return
+    
+    try:
+        tag_id = int(tag_id_list[0])
+        task_id = int(task_id_list[0])
+    except ValueError:
+        bot.answer_callback_query(call.id, "Ошибка: неверные параметры.")
+        return
+    
+    # Получаем выбранный тег
+    try:
+        tag = Tag.objects.get(id=tag_id)
+    except Tag.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: выбранный тег не найден.")
+        return
+    
+    # Получаем заявку, которую необходимо обновить
+    try:
+        task = Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
+    except Task.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
+        return
+
+    # Обновляем заявку: меняем тег и устанавливаем stage в CREATED
+    task.tag = tag
+    task.stage = Task.Stage.CREATED
+    task.save()
+    
+    bot.answer_callback_query(call.id, f"Заявка обновлена: выбран тег '{tag.name}'.")
+    edit_dispatcher_task_message(
         task=task, 
-        chat_id=chat_id, 
-        reply_to_message_id=messages[0].id, 
-        reply_markup=tags_keyboard(task), 
-        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
+        chat_id=call.message.chat.id, 
+        new_text=task.dispatcher_text,
+        new_reply_markup=dispather_task()
     )
 
-@bot.message_handler(func=lambda message: message.media_group_id is not None, content_types=['photo', 'video', 'document'])
-def handle_media_group(message: Message):
+@bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_CANCEL}?"))
+def handle_task_cancel(call: CallbackQuery):
     """
-    Обработчик для сообщений, входящих в media group.
-    Если сообщение имеет media_group_id, оно добавляется в кэш.
-    Через небольшую задержку (например, 1 секунда) все сообщения группы обрабатываются вместе.
+    Обработчик для кнопки "Отменить".
+    Удаляет заявку и связанные с ней отклики, удаляет сообщения с файлами,
+    изменяет диспетчерское сообщение на "Заявка №{task.id} отменена" и удаляет заявку.
     """
-    media_group_id = message.media_group_id
-    if media_group_id not in media_group_cache:
-        media_group_cache[media_group_id] = []
-        threading.Timer(1.0, process_media_group, args=[media_group_id]).start()
-    media_group_cache[media_group_id].append(message)
-
-@bot.message_handler(func=lambda message: message.media_group_id is None, content_types=['text', 'photo', 'document', 'video'])
-def handle_single_message(message: Message):
-    """
-    Обработчик одиночных сообщений (не входящих в media group).
-    Если сообщение является чисто текстовым, оно помещается во временный кэш и ждёт,
-    чтобы, возможно, объединиться с последующей media group.
-    Если сообщение содержит медиа (с подписью), обрабатывается сразу.
-    """
-    if message.content_type == 'text':
-        text = message.text.strip()
-        timer = threading.Timer(2.0, process_pending_text, args=[message.chat.id, message, text])
-        pending_text_messages[message.chat.id] = (text, message, timer)
-        timer.start()
+    query_string = call.data.split("?", 1)[1]
+    params = urllib.parse.parse_qs(query_string)
+    task_id_list = params.get(CallbackData.TASK_ID)
+    if not task_id_list:
+        bot.answer_callback_query(call.id, "Ошибка: отсутствует task_id.")
         return
-
-    files = []
-    if message.caption:
-        text = message.caption.strip()
-    else:
-        logger.info(f"Сообщение от пользователя {message.chat.id} без подписи. Заявка не обработана.")
-        return
-
-    if message.content_type == 'photo' and message.photo:
-        highest_res_photo = message.photo[-1]
-        files.append({"file_id": highest_res_photo.file_id, "type": "photo"})
-    if message.content_type == 'document' and message.document:
-        files.append({"file_id": message.document.file_id, "type": "document"})
-    if message.content_type == 'video' and message.video:
-        files.append({"file_id": message.video.file_id, "type": "video"})
-
-    if len(text) < 13:
-        logger.info(f"Заявка от пользователя {message.chat.id} слишком короткая: '{text}'")
+    try:
+        task_id = int(task_id_list[0])
+    except ValueError:
+        bot.answer_callback_query(call.id, "Ошибка: неверный task_id.")
         return
 
     try:
-        user = TelegramUser.objects.get(chat_id=message.chat.id)
-    except TelegramUser.DoesNotExist:
-        logger.error(f"Пользователь {message.chat.id} не найден. Заявка не сохранена.")
+        task = Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
+    except Task.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
         return
 
-    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
-    if not user.can_publish_tasks:
-        send_welcome_message(created=False, user=user)
-        return
+    # Удаляем связанные отклики (если они есть)
+    task.responses.all().delete()
 
-    logger.info(f"Получена валидная заявка от пользователя {message.chat.id}: '{text}'")
-    task = Task.objects.create(
-        tag=None,
-        title=text if len(text) <= 255 else text[:255],
-        description=text,
-        payment_type=None,
-        creator=user,
-        stage=Task.Stage.PENDING_TAG
-    )
-    logger.info(f"Задание сохранено с id: {task.id}")
+    # Удаляем сообщения с файлами
+    for file in task.files.all():
+        if file.message_id:
+            try:
+                bot.delete_message(call.message.chat.id, file.message_id)
+            except Exception as e:
+                # Логируем, если не удалось удалить отдельное сообщение
+                logger.error(f"Ошибка при удалении сообщения файла {file.file_id}: {e}")
 
-    for f in files:
-        Files.objects.create(
-            task=task,
-            file_id=f["file_id"],
-            file_type=f["type"]
+    # Обновляем диспетчерское сообщение перед удалением
+    cancel_text = f"*Ваша заявка №{task.id} отменена*"
+    try:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=task.message_to_edit_id,
+            text=cancel_text,
+            parse_mode="MarkdownV2"
         )
+    except Exception as e:
+        logger.error(f"Ошибка при редактировании dispatcher сообщения для задачи {task.id}: {e}")
 
-    send_dispatcher_task_message(
-        task=task, 
-        chat_id=message.chat.id, 
-        reply_to_message_id=message.id, 
-        reply_markup=tags_keyboard(task), 
-        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
-    )
+    # Удаляем заявку
+    task.delete()
+    bot.answer_callback_query(call.id, "Заявка отменена.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_CLOSE}?"))
+def handle_task_close(call: CallbackQuery):
+    """
+    Обработчик для кнопки "Закрыть".
+    Изменяет состояние заявки на CLOSED и обновляет диспетчерское сообщение.
+    """
+    query_string = call.data.split("?", 1)[1]
+    params = urllib.parse.parse_qs(query_string)
+    task_id_list = params.get(CallbackData.TASK_ID)
+    if not task_id_list:
+        bot.answer_callback_query(call.id, "Ошибка: отсутствует task_id.")
+        return
+    try:
+        task_id = int(task_id_list[0])
+    except ValueError:
+        bot.answer_callback_query(call.id, "Ошибка: неверный task_id.")
+        return
+
+    try:
+        task = Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
+    except Task.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
+        return
+
+    # Изменяем состояние заявки на CLOSED
+    task.stage = Task.Stage.CLOSED
+    task.save()
+
+    close_text = f"*Ваша заявка №{task.id} закрыта*"
+    try:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=task.message_to_edit_id,
+            text=close_text,
+            parse_mode="MarkdownV2"
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при редактировании dispatcher сообщения для закрытия задачи {task.id}: {e}")
+    bot.answer_callback_query(call.id, "Заявка закрыта.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_REPEAT}?"))
+def handle_task_repeat(call: CallbackQuery):
+    """
+    Обработчик для кнопки "Повторить".
+    Пока просто сообщает, что заявка повторно выложена, и обновляет диспетчерское сообщение.
+    """
+    query_string = call.data.split("?", 1)[1]
+    params = urllib.parse.parse_qs(query_string)
+    task_id_list = params.get(CallbackData.TASK_ID)
+    if not task_id_list:
+        bot.answer_callback_query(call.id, "Ошибка: отсутствует task_id.")
+        return
+    try:
+        task_id = int(task_id_list[0])
+    except ValueError:
+        bot.answer_callback_query(call.id, "Ошибка: неверный task_id.")
+        return
+
+    try:
+        task = Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
+    except Task.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
+        return
+
+    repeat_text = f"*Ваша заявка №{task.id} повторно выложена*"
+    try:
+        bot.edit_message_text(
+            chat_id=call.message.chat.id,
+            message_id=task.message_to_edit_id,
+            text=repeat_text,
+            parse_mode="MarkdownV2"
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при редактировании dispatcher сообщения для повторной выкладки задачи {task.id}: {e}")
+    bot.answer_callback_query(call.id, "Заявка повторно выложена.")
