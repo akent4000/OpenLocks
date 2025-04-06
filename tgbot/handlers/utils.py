@@ -55,4 +55,4 @@ def handle_tag_selection(call: CallbackQuery):
     task.save()
     
     bot.answer_callback_query(call.id, f"Заявка обновлена: выбран тег '{tag.name}'.")
-    send_dispatcher_task_message(task=task, chat_id=call.chat.id, reply_to_message_id=None)
+    send_dispatcher_task_message(task=task, chat_id=call.message.chat.id, reply_to_message_id=None)
