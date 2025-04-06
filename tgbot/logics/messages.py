@@ -99,7 +99,6 @@ def send_dispatcher_task_message(
                     chat_id,
                     media=media,
                     reply_to_message_id=reply_to_message_id,
-                    parse_mode="MarkdownV2"
                 )
                 if msgs:
                     first_msg_id = msgs[0].message_id
@@ -118,21 +117,18 @@ def send_dispatcher_task_message(
                             chat_id,
                             photo=f.file_id,
                             reply_to_message_id=reply_to_message_id,
-                            parse_mode="MarkdownV2"
                         )
                     elif f.file_type == "video":
                         msg = bot.send_video(
                             chat_id,
                             video=f.file_id,
                             reply_to_message_id=reply_to_message_id,
-                            parse_mode="MarkdownV2"
                         )
                     elif f.file_type == "document":
                         msg = bot.send_document(
                             chat_id,
                             document=f.file_id,
                             reply_to_message_id=reply_to_message_id,
-                            parse_mode="MarkdownV2"
                         )
                     else:
                         msg = bot.send_message(
@@ -189,6 +185,7 @@ def edit_dispatcher_task_message(
     """
     Редактирует второе сообщение (с текстом и reply_markup), отправленное в рамках задачи.
     Для редактирования используется task.message_to_edit_id.
+    При возникновении ошибки редактирования отправляется новое сообщение и его id сохраняется в task.message_to_edit_id.
     """
     try:
         if not task.message_to_edit_id:
@@ -204,3 +201,17 @@ def edit_dispatcher_task_message(
         logger.info(f"Отредактировано сообщение задачи {task.id}")
     except Exception as e:
         logger.error(f"Ошибка при редактировании сообщения задачи {task.id}: {e}")
+        try:
+            # Отправляем новое сообщение вместо редактирования
+            new_msg = bot.send_message(
+                chat_id=chat_id,
+                text=new_text,
+                parse_mode="MarkdownV2",
+                reply_markup=new_reply_markup
+            )
+            task.message_to_edit_id = new_msg.message_id
+            task.save()
+            logger.info(f"Отправлено новое сообщение для задачи {task.id}")
+        except Exception as ex:
+            logger.error(f"Ошибка при отправке нового сообщения для задачи {task.id}: {ex}")
+
