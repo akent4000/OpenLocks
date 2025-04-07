@@ -75,7 +75,7 @@ def send_task_files(recipient: TelegramUser, task: Task, reply_to_message_id: Op
                 for f, msg in zip(files_qs, msgs):
                     sent = SentMessage.objects.create(
                         message_id=msg.message_id,
-                        telegram_user=task.creator
+                        telegram_user=recipient
                     )
                     f.sent_messages.add(sent)
                     f.save()
@@ -96,7 +96,7 @@ def send_task_files(recipient: TelegramUser, task: Task, reply_to_message_id: Op
                     first_msg_id = msg.message_id
                 sent = SentMessage.objects.create(
                     message_id=msg.message_id,
-                    telegram_user=task.creator
+                    telegram_user=recipient
                 )
                 f.sent_messages.add(sent)
                 f.save()
@@ -132,7 +132,7 @@ def send_task_message(
         )
         sent = SentMessage.objects.create(
             message_id=text_msg.message_id,
-            telegram_user=task.creator
+            telegram_user=recipient
         )
         task.sent_messages.add(sent)
         task.save()
@@ -175,7 +175,7 @@ def edit_task_message(
             )
             new_sent = SentMessage.objects.create(
                 message_id=new_msg.message_id,
-                telegram_user=task.creator
+                telegram_user=recipient
             )
             task.sent_messages.add(new_sent)
             task.save()
