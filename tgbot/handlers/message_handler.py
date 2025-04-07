@@ -77,7 +77,7 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
     send_task_message(
         recipient=user, 
         task=task,
-        text=f"*Выберите тэг для вашей заявки заявки*\n{task.task_text}",
+        text=f"*Выберите тэг для вашей заявкиs*\n{task.task_text}",
         reply_markup=tags_keyboard(task), 
         reply_to_message_id=reply_to_message_id,
     )
