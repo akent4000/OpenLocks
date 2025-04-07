@@ -121,7 +121,7 @@ def process_media_group(media_group_id: str):
         logger.info(f"Media group с короткой подписью: '{text}'. Заявка не обработана.")
         return
 
-    process_task_submission(chat_id, text, reply_to_message_id=chat_id, files=files)
+    process_task_submission(chat_id, text, reply_to_message_id=messages[0].id, files=files)
 
 @bot.message_handler(func=lambda message: message.media_group_id is not None, content_types=['photo', 'video', 'document'])
 def handle_media_group(message: Message):

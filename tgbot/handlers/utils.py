@@ -107,7 +107,7 @@ def handle_tag_selection(call: CallbackQuery):
     broadcast_task_to_subscribers(
         task=task,
         text=task.task_text,
-        reply_markup=payment_types_keyboard()
+        reply_markup=payment_types_keyboard(task=task)
     )
 
 
