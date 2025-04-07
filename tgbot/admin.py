@@ -338,7 +338,7 @@ class TaskAdmin(admin.ModelAdmin):
     list_display = ('id', 'title', 'tag', 'creator', 'stage', 'created_at', 'get_sent_messages')
     list_filter = ('stage', 'tag', 'payment_type')
     search_fields = ('title', 'description')
-    readonly_fields = ('dispatcher_text', 'get_sent_messages')
+    readonly_fields = ('task_text', 'get_sent_messages')
     inlines = [FilesInline, ResponseInline]
 
     def get_sent_messages(self, obj):
