@@ -319,8 +319,9 @@ class FilesInline(admin.TabularInline):
     can_delete = True
 
     def get_sent_messages(self, obj):
-        return ", ".join(f"{sm.message_id} ({sm.get_message_type_display()})" for sm in obj.sent_messages.all())
+        return ", ".join(f"{sm.message_id} ({sm.telegram_user})" for sm in obj.sent_messages.all())
     get_sent_messages.short_description = "Отправленные сообщения"
+
 
 ##############################
 # Response Inline для Task
