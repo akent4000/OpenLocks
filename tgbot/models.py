@@ -172,12 +172,11 @@ class SentMessage(models.Model):
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
 
     def __str__(self):
-        return f"{self.get_message_type_display()} - {self.message_id}"
+        return f"{self.telegram_user} - {self.message_id}"
 
     class Meta:
         verbose_name = 'Отправленное сообщение'
         verbose_name_plural = 'Отправленные сообщения'
-
 
 class Task(models.Model):
     """Модель задания"""
