@@ -1,10 +1,10 @@
 import os
 from decimal import Decimal
 
-from django.db.models.signals import post_save, pre_delete, post_delete, pre_save
+from django.db.models.signals import *
 from django.dispatch import receiver
 
-from tgbot.models import SSHKey, Configuration, Server, TelegramUser, Tag
+from tgbot.models import *
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 import threading
 
@@ -69,3 +69,5 @@ def server_post_save(sender, instance, created, **kwargs):
 def subscribe_user_to_all_tags(sender, instance, created, **kwargs):
     if created:
         instance.subscribed_tags.set(Tag.objects.all())
+
+

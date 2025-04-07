@@ -1,10 +1,14 @@
 class CallbackData:
     TAG_SELECT = "tag_select"
     TAG_ID = "tag_id"
+
     TASK_ID = "task_id"
     TASK_CLOSE = "task_close"
     TASK_CANCEL = "task_cancel"
     TASK_REPEAT = "task_repeat"
+
+    PAYMENT_SELECT = "payment_select"
+    PAYMENT_ID = "payment_id"
 
 class ButtonNames:
     CLOSE = "Закрыть"

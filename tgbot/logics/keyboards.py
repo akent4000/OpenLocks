@@ -22,7 +22,7 @@ def tags_keyboard(task: Task):
     return markup
 
 
-def dispather_task(task: Task):
+def dispather_task_keyboard(task: Task):
     keyboard = []
     cancel_button = InlineKeyboardButton(
         ButtonNames.CANCEL, 
@@ -37,5 +37,21 @@ def dispather_task(task: Task):
         callback_data=f"{CallbackData.TASK_REPEAT}?{CallbackData.TASK_ID}={task.id}"
     )
     keyboard.append([cancel_button, close_button, repeat_button])
+    markup = InlineKeyboardMarkup(keyboard)
+    return markup
+
+def payment_types_keyboard(task: Task):
+    payment_types = PaymentTypeModel.objects.all()
+    if not payment_types:
+        logger.error("Не найдено ни одгого типа оплаты")
+        return
+
+    keyboard = []
+    for payment_type in payment_types:
+        button = InlineKeyboardButton(
+            payment_type.name, 
+            callback_data=f"{CallbackData.PAYMENT_SELECT}?{CallbackData.PAYMENT_ID}={payment_type.id}&{CallbackData.TASK_ID}={task.id}"
+        )
+        keyboard.append([button])
     markup = InlineKeyboardMarkup(keyboard)
     return markup

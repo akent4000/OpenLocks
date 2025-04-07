@@ -122,6 +122,13 @@ class TelegramUser(models.Model):
     def __str__(self):
         return f"{self.first_name} {self.last_name or ''} (@{self.username})"
 
+    @staticmethod
+    def get_user_by_chat_id(chat_id: int):
+        try:
+            return TelegramUser.objects.get(chat_id=chat_id)
+        except TelegramUser.DoesNotExist:
+            return None
+
     class Meta:
         verbose_name = 'Пользователь Telegram'
         verbose_name_plural = 'Пользователи Telegram'
@@ -154,15 +161,13 @@ class PaymentTypeModel(models.Model):
 
 class SentMessage(models.Model):
     """Модель для хранения отправленных сообщений в Telegram."""
-    MESSAGE_TYPE_CHOICES = [
-        ('dispatcher', 'Dispatcher Message'),
-        ('master', 'Master Message'),
-    ]
     message_id = models.IntegerField(verbose_name='ID сообщения')
-    message_type = models.CharField(
-        max_length=50,
-        choices=MESSAGE_TYPE_CHOICES,
-        verbose_name='Тип сообщения'
+    telegram_user = models.ForeignKey(
+        'TelegramUser',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        verbose_name='Пользователь'
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
 
@@ -219,7 +224,6 @@ class Task(models.Model):
         verbose_name='Этап задания'
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    # Вместо одного ID для редактирования мы храним список отправленных сообщений
     sent_messages = models.ManyToManyField(
         SentMessage,
         blank=True,
@@ -231,9 +235,9 @@ class Task(models.Model):
         return self.title
     
     @property
-    def dispatcher_text(self):
+    def task_text(self):
         tag_text = f"\n*Тэг:* {self.tag.name}" if self.tag else ""
-        return f"*Ваша заявка №{self.id}:*{tag_text}\n*Описание:* {self.description}\n"
+        return f"*Заявка №{self.id}:*{tag_text}\n*Описание:* {self.description}\n"
     
     class Meta:
         verbose_name = 'Задание'

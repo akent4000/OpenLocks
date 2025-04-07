@@ -7,7 +7,7 @@ from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Task, Tag, Files
 from tgbot.logics.constants import *
 from tgbot.logics.keyboards import tags_keyboard
-from tgbot.logics.messages import send_dispatcher_task_message, send_welcome_message
+from tgbot.logics.messages import *
 
 # Настройка логгера
 logger.add("logs/message_handler.log", rotation="10 MB", level="INFO")
@@ -19,28 +19,43 @@ media_group_cache = {}
 # Ключ – chat_id, значение – кортеж (text, message, timer)
 pending_text_messages = {}
 
-def process_pending_text(chat_id: int, message: Message, text: str):
+MIN_TEXT_LENGTH = 13
+
+def extract_files_from_message(message: Message) -> list:
     """
-    Обрабатывает текстовое сообщение, если в течение ожидания не пришла media group.
+    Извлекает файлы из сообщения и возвращает список словарей с file_id и типом файла.
     """
-    pending_text_messages.pop(chat_id, None)
-    
-    if len(text) < 13:
+    files = []
+    if message.content_type == 'photo' and message.photo:
+        highest_res_photo = message.photo[-1]
+        files.append({"file_id": highest_res_photo.file_id, "type": "photo"})
+    elif message.content_type == 'document' and message.document:
+        files.append({"file_id": message.document.file_id, "type": "document"})
+    elif message.content_type == 'video' and message.video:
+        files.append({"file_id": message.video.file_id, "type": "video"})
+    return files
+
+def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, files: list = None) -> None:
+    """
+    Валидирует текст, получает пользователя, создает задачу, сохраняет файлы (если есть)
+    и отправляет сообщение с выбором тэга.
+    """
+    if len(text) < MIN_TEXT_LENGTH:
         logger.info(f"Заявка от пользователя {chat_id} слишком короткая: '{text}'")
         return
 
     try:
-        user = TelegramUser.objects.get(chat_id=chat_id)
+        user = TelegramUser.get_user_by_chat_id(chat_id=chat_id)
     except TelegramUser.DoesNotExist:
         logger.error(f"Пользователь {chat_id} не найден. Заявка не сохранена.")
         return
 
-    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
+    # Если у пользователя нет прав публиковать задания – отправляем приветственное сообщение
     if not user.can_publish_tasks:
         send_welcome_message(created=False, user=user)
         return
 
-    logger.info(f"Получена валидная заявка от пользователя {chat_id} (только текст): '{text}'")
+    logger.info(f"Получена валидная заявка от пользователя {chat_id}: '{text}'")
     task = Task.objects.create(
         tag=None,
         title=text if len(text) <= 255 else text[:255],
@@ -51,25 +66,42 @@ def process_pending_text(chat_id: int, message: Message, text: str):
     )
     logger.info(f"Задание сохранено с id: {task.id}")
 
-    send_dispatcher_task_message(
-        task=task, 
-        chat_id=chat_id, 
-        reply_to_message_id=message.id, 
+    if files:
+        for f in files:
+            Files.objects.create(
+                task=task,
+                file_id=f["file_id"],
+                file_type=f["type"]
+            )
+
+    send_task_message(
+        recipient=user, 
+        task=task,
+        text=f"*Выберите тэг для вашей заявки заявки*\n{task.task_text}",
         reply_markup=tags_keyboard(task), 
-        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
+        reply_to_message_id=reply_to_message_id,
     )
+
+def process_pending_text(chat_id: int, message: Message, text: str):
+    """
+    Обрабатывает текстовое сообщение, если в течение ожидания не пришла media group.
+    """
+    pending_text_messages.pop(chat_id, None)
+    process_task_submission(chat_id, text, reply_to_message_id=message.id)
 
 def process_media_group(media_group_id: str):
     """
     Обрабатывает все сообщения, относящиеся к одному media group.
     Собирает файлы и подпись из сообщений.
     Если для этого чата ранее было получено текстовое сообщение, оно используется в качестве подписи.
-    При сохранении для фото выбирается вариант с наивысшим разрешением.
     """
     messages = media_group_cache.pop(media_group_id, [])
-    files = []  # Список словарей с file_id и типом файла
-    text = None
+    if not messages:
+        return
+
     chat_id = messages[0].chat.id
+    files = []
+    text = None
 
     # Если для этого чата уже есть ожидающее текстовое сообщение, используем его
     if chat_id in pending_text_messages:
@@ -80,58 +112,16 @@ def process_media_group(media_group_id: str):
     for message in messages:
         if message.caption and not text:
             text = message.caption.strip()
-
-        if message.content_type == 'photo' and message.photo:
-            highest_res_photo = message.photo[-1]
-            files.append({"file_id": highest_res_photo.file_id, "type": "photo"})
-        elif message.content_type == 'document' and message.document:
-            files.append({"file_id": message.document.file_id, "type": "document"})
-        elif message.content_type == 'video' and message.video:
-            files.append({"file_id": message.video.file_id, "type": "video"})
+        files.extend(extract_files_from_message(message))
 
     if not text:
         logger.info("Media group без подписи. Заявка не обработана.")
         return
-    if len(text) < 13:
+    if len(text) < MIN_TEXT_LENGTH:
         logger.info(f"Media group с короткой подписью: '{text}'. Заявка не обработана.")
         return
 
-    try:
-        user = TelegramUser.objects.get(chat_id=chat_id)
-    except TelegramUser.DoesNotExist:
-        logger.error(f"Пользователь {chat_id} не найден. Заявка не сохранена.")
-        return
-
-    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
-    if not user.can_publish_tasks:
-        send_welcome_message(created=False, user=user)
-        return
-
-    logger.info(f"Получена валидная заявка из media group: '{text}'")
-    task = Task.objects.create(
-        tag=None,
-        title=text if len(text) <= 255 else text[:255],
-        description=text,
-        payment_type=None,
-        creator=user,
-        stage=Task.Stage.PENDING_TAG
-    )
-    logger.info(f"Задание сохранено с id: {task.id}")
-
-    for f in files:
-        Files.objects.create(
-            task=task,
-            file_id=f["file_id"],
-            file_type=f["type"]
-        )
-    
-    send_dispatcher_task_message(
-        task=task, 
-        chat_id=chat_id, 
-        reply_to_message_id=messages[0].id, 
-        reply_markup=tags_keyboard(task), 
-        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
-    )
+    process_task_submission(chat_id, text, reply_to_message_id=chat_id, files=files)
 
 @bot.message_handler(func=lambda message: message.media_group_id is not None, content_types=['photo', 'video', 'document'])
 def handle_media_group(message: Message):
@@ -161,58 +151,11 @@ def handle_single_message(message: Message):
         timer.start()
         return
 
-    files = []
+    files = extract_files_from_message(message)
     if message.caption:
         text = message.caption.strip()
     else:
         logger.info(f"Сообщение от пользователя {message.chat.id} без подписи. Заявка не обработана.")
         return
 
-    if message.content_type == 'photo' and message.photo:
-        highest_res_photo = message.photo[-1]
-        files.append({"file_id": highest_res_photo.file_id, "type": "photo"})
-    if message.content_type == 'document' and message.document:
-        files.append({"file_id": message.document.file_id, "type": "document"})
-    if message.content_type == 'video' and message.video:
-        files.append({"file_id": message.video.file_id, "type": "video"})
-
-    if len(text) < 13:
-        logger.info(f"Заявка от пользователя {message.chat.id} слишком короткая: '{text}'")
-        return
-
-    try:
-        user = TelegramUser.objects.get(chat_id=message.chat.id)
-    except TelegramUser.DoesNotExist:
-        logger.error(f"Пользователь {message.chat.id} не найден. Заявка не сохранена.")
-        return
-
-    # Если пользователь не имеет права публиковать задания, отправляем приветственное сообщение один раз
-    if not user.can_publish_tasks:
-        send_welcome_message(created=False, user=user)
-        return
-
-    logger.info(f"Получена валидная заявка от пользователя {message.chat.id}: '{text}'")
-    task = Task.objects.create(
-        tag=None,
-        title=text if len(text) <= 255 else text[:255],
-        description=text,
-        payment_type=None,
-        creator=user,
-        stage=Task.Stage.PENDING_TAG
-    )
-    logger.info(f"Задание сохранено с id: {task.id}")
-
-    for f in files:
-        Files.objects.create(
-            task=task,
-            file_id=f["file_id"],
-            file_type=f["type"]
-        )
-
-    send_dispatcher_task_message(
-        task=task, 
-        chat_id=message.chat.id, 
-        reply_to_message_id=message.id, 
-        reply_markup=tags_keyboard(task), 
-        text=f"*Выберите тэг для заявки*\n{task.dispatcher_text}"
-    )
+    process_task_submission(message.chat.id, text, reply_to_message_id=message.id, files=files)
