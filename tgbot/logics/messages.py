@@ -5,7 +5,7 @@ from loguru import logger
 logger.add("logs/messages.log", rotation="10 MB", level="INFO")
 
 from tgbot.dispatcher import bot
-from tgbot.models import TelegramUser, Task, Files
+from tgbot.models import TelegramUser, Task, Files, SentMessage
 from tgbot.logics.constants import *
 from telebot import REPLY_MARKUP_TYPES
 from telebot.types import InputMediaPhoto, InputMediaVideo
@@ -18,9 +18,6 @@ def send_welcome_message(created: bool, user: TelegramUser) -> None:
     отправляется сообщение Messages.WELCOME_MESSAGE.
     Если же пользователь имеет право публиковать задания (can_publish_tasks == True),
     отправляется сообщение Messages.CHAT_ACTIVE_MESSAGE, которое через 5 секунд удаляется.
-    
-    :param created: Флаг, указывающий, был ли пользователь только что создан.
-    :param user: Экземпляр модели TelegramUser.
     """
     try:
         if created or not user.can_publish_tasks:
@@ -48,7 +45,6 @@ def send_welcome_message(created: bool, user: TelegramUser) -> None:
         logger.error(f"Общая ошибка при отправке приветственного сообщения пользователю {user.chat_id}: {e}")
 
 
-
 def send_dispatcher_task_message(
         task: Task,
         chat_id: int | str,
@@ -60,14 +56,15 @@ def send_dispatcher_task_message(
     Отправляет файлы и текст задачи в два этапа:
       1. Сначала отправляются файлы (даже один файл) – в виде media group, если файлов больше одного и все они фото/видео,
          или по отдельности, если файлы смешанные или один файл.
-         При отправке каждого файла сохраняется его message_id в модели Files.
+         Для каждого отправленного файла создаётся SentMessage, который добавляется в task.files.sent_messages.
       2. Затем отправляется текстовое сообщение (с reply_markup) как ответ на первое сообщение.
-         Его id сохраняется в поле task.message_to_edit_id.
+         Для этого создаётся SentMessage, и добавляется в task.sent_messages.
     Если файлов нет – отправляется только текстовое сообщение.
     """
     try:
         # Получаем список файлов, связанных с задачей
         files_qs = list(task.files.all())
+        
         # Если файлов нет, отправляем только текст
         if not files_qs:
             try:
@@ -78,7 +75,8 @@ def send_dispatcher_task_message(
                     parse_mode="MarkdownV2",
                     reply_markup=reply_markup
                 )
-                task.message_to_edit_id = msg.message_id
+                sent = SentMessage.objects.create(message_id=msg.message_id, message_type="dispatcher")
+                task.sent_messages.add(sent)
                 task.save()
             except Exception as e:
                 logger.error(f"Ошибка при отправке текстового сообщения: {e}")
@@ -102,9 +100,10 @@ def send_dispatcher_task_message(
                 )
                 if msgs:
                     first_msg_id = msgs[0].message_id
-                    # Сохраняем message_id для каждого файла
+                    # Для каждого файла создаём SentMessage и добавляем его
                     for f, msg in zip(files_qs, msgs):
-                        f.message_id = msg.message_id
+                        sent = SentMessage.objects.create(message_id=msg.message_id, message_type="dispatcher")
+                        f.sent_messages.add(sent)
                         f.save()
             except Exception as e:
                 logger.error(f"Ошибка при отправке media group: {e}")
@@ -139,8 +138,8 @@ def send_dispatcher_task_message(
                         )
                     if idx == 0:
                         first_msg_id = msg.message_id
-                    # Сохраняем message_id в модели Files
-                    f.message_id = msg.message_id
+                    sent = SentMessage.objects.create(message_id=msg.message_id, message_type="dispatcher")
+                    f.sent_messages.add(sent)
                     f.save()
                 except Exception as e:
                     logger.error(f"Ошибка при отправке файла {f.file_id} (тип {f.file_type}): {e}")
@@ -155,7 +154,8 @@ def send_dispatcher_task_message(
                     parse_mode="MarkdownV2",
                     reply_markup=reply_markup
                 )
-                task.message_to_edit_id = text_msg.message_id
+                sent = SentMessage.objects.create(message_id=text_msg.message_id, message_type="dispatcher")
+                task.sent_messages.add(sent)
                 task.save()
             except Exception as e:
                 logger.error(f"Ошибка при отправке текстового сообщения: {e}")
@@ -169,12 +169,14 @@ def send_dispatcher_task_message(
                     parse_mode="MarkdownV2",
                     reply_markup=reply_markup
                 )
-                task.message_to_edit_id = text_msg.message_id
+                sent = SentMessage.objects.create(message_id=text_msg.message_id, message_type="dispatcher")
+                task.sent_messages.add(sent)
                 task.save()
             except Exception as e:
                 logger.error(f"Ошибка при отправке текстового сообщения (без файлов): {e}")
     except Exception as e:
         logger.error(f"Общая ошибка в send_dispatcher_task_message: {e}")
+
 
 def edit_dispatcher_task_message(
         task: Task,
@@ -183,17 +185,19 @@ def edit_dispatcher_task_message(
         new_reply_markup: REPLY_MARKUP_TYPES | None = None,
 ):
     """
-    Редактирует второе сообщение (с текстом и reply_markup), отправленное в рамках задачи.
-    Для редактирования используется task.message_to_edit_id.
-    При возникновении ошибки редактирования отправляется новое сообщение и его id сохраняется в task.message_to_edit_id.
+    Редактирует последнее отправленное диспетчерское сообщение (с текстом и reply_markup), отправленное в рамках задачи.
+    Для редактирования берётся последнее сообщение из task.sent_messages (по дате создания).
+    При возникновении ошибки редактирования отправляется новое сообщение, и его SentMessage добавляется в task.sent_messages.
     """
     try:
-        if not task.message_to_edit_id:
-            logger.error(f"Задача {task.id} не содержит message_to_edit_id для редактирования.")
+        # Получаем последнее отправленное сообщение для задачи
+        sent = task.sent_messages.order_by("created_at").last()
+        if not sent:
+            logger.error(f"Задача {task.id} не содержит сохранённых отправленных сообщений для редактирования.")
             return
         bot.edit_message_text(
             chat_id=chat_id,
-            message_id=task.message_to_edit_id,
+            message_id=sent.message_id,
             text=new_text,
             parse_mode="MarkdownV2",
             reply_markup=new_reply_markup
@@ -202,16 +206,15 @@ def edit_dispatcher_task_message(
     except Exception as e:
         logger.error(f"Ошибка при редактировании сообщения задачи {task.id}: {e}")
         try:
-            # Отправляем новое сообщение вместо редактирования
             new_msg = bot.send_message(
                 chat_id=chat_id,
                 text=new_text,
                 parse_mode="MarkdownV2",
                 reply_markup=new_reply_markup
             )
-            task.message_to_edit_id = new_msg.message_id
+            new_sent = SentMessage.objects.create(message_id=new_msg.message_id, message_type="dispatcher")
+            task.sent_messages.add(new_sent)
             task.save()
             logger.info(f"Отправлено новое сообщение для задачи {task.id}")
         except Exception as ex:
             logger.error(f"Ошибка при отправке нового сообщения для задачи {task.id}: {ex}")
-

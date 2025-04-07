@@ -16,7 +16,6 @@ logger.add("logs/models.log", rotation="10 MB", level="INFO")
 
 class Configuration(models.Model):
     """Модель для хранения текущей конфигурации"""
-    
     test_mode = models.BooleanField(default=False, verbose_name='Включить тестовый режим')
     auto_request_permission = models.BooleanField(
         default=False,
@@ -26,16 +25,16 @@ class Configuration(models.Model):
     @staticmethod
     def get_is_test_mode():
         last_obj = Configuration.objects.last()
-        if last_obj is None:
-            return False
-        return last_obj.test_mode
+        return last_obj.test_mode if last_obj else False
     
     @staticmethod
     def get_auto_request_permission():
         last_obj = Configuration.objects.last()
-        if last_obj is None:
-            return False
-        return last_obj.auto_request_permission
+        return last_obj.auto_request_permission if last_obj else False
+
+    class Meta:
+        verbose_name = 'Конфигурация'
+        verbose_name_plural = 'Конфигурации'
 
 
 class TelegramBotToken(models.Model):
@@ -49,17 +48,13 @@ class TelegramBotToken(models.Model):
     
     @staticmethod
     def get_main_bot_token():
-        last_obj: TelegramBotToken = TelegramBotToken.objects.filter(test_bot=False).last()
-        if last_obj is None:
-            return ""
-        return last_obj.token
-
+        last_obj = TelegramBotToken.objects.filter(test_bot=False).last()
+        return last_obj.token if last_obj else ""
+    
     @staticmethod
     def get_test_bot_token():
-        last_obj: TelegramBotToken = TelegramBotToken.objects.filter(test_bot=True).last()
-        if last_obj is None:
-            return ""
-        return last_obj.token
+        last_obj = TelegramBotToken.objects.filter(test_bot=True).last()
+        return last_obj.token if last_obj else ""
 
     class Meta:
         verbose_name = 'Токен бота'
@@ -77,19 +72,16 @@ class Server(models.Model):
         verbose_name='root логин',
         help_text='Например: yes, no, prohibit-password, forced-commands-only'
     )
-    permit_empty_passwords = models.BooleanField(
-        default=False,
-        verbose_name='Разрешить пустые пароли'
-    )
+    permit_empty_passwords = models.BooleanField(default=False, verbose_name='Разрешить пустые пароли')
     user = models.CharField(default="root", max_length=255, verbose_name='Пользователь SSH')
-
-    class Meta:
-        verbose_name = 'DNS сервер'
-        verbose_name_plural = 'DNS сервера'
 
     @staticmethod
     def get_server():
         return Server.objects.last()
+
+    class Meta:
+        verbose_name = 'DNS сервер'
+        verbose_name_plural = 'DNS сервера'
 
 
 class SSHKey(models.Model):
@@ -106,7 +98,7 @@ class SSHKey(models.Model):
 
     def __str__(self):
         return self.key_name
-    
+
     class Meta:
         verbose_name = 'SSH ключ'
         verbose_name_plural = 'SSH ключи'
@@ -120,6 +112,12 @@ class TelegramUser(models.Model):
     username = models.CharField(max_length=255, blank=True, null=True, verbose_name='Username')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата регистрации')
     can_publish_tasks = models.BooleanField(default=False, verbose_name='Доступ к публикации заданий')
+    subscribed_tags = models.ManyToManyField(
+        'Tag', 
+        blank=True, 
+        related_name='subscribers', 
+        verbose_name='Подписка на теги'
+    )
 
     def __str__(self):
         return f"{self.first_name} {self.last_name or ''} (@{self.username})"
@@ -152,6 +150,28 @@ class PaymentTypeModel(models.Model):
     class Meta:
         verbose_name = 'Тип оплаты'
         verbose_name_plural = 'Типы оплаты'
+
+
+class SentMessage(models.Model):
+    """Модель для хранения отправленных сообщений в Telegram."""
+    MESSAGE_TYPE_CHOICES = [
+        ('dispatcher', 'Dispatcher Message'),
+        ('master', 'Master Message'),
+    ]
+    message_id = models.IntegerField(verbose_name='ID сообщения')
+    message_type = models.CharField(
+        max_length=50,
+        choices=MESSAGE_TYPE_CHOICES,
+        verbose_name='Тип сообщения'
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
+
+    def __str__(self):
+        return f"{self.get_message_type_display()} - {self.message_id}"
+
+    class Meta:
+        verbose_name = 'Отправленное сообщение'
+        verbose_name_plural = 'Отправленные сообщения'
 
 
 class Task(models.Model):
@@ -199,10 +219,12 @@ class Task(models.Model):
         verbose_name='Этап задания'
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-    message_to_edit_id = models.IntegerField(
+    # Вместо одного ID для редактирования мы храним список отправленных сообщений
+    sent_messages = models.ManyToManyField(
+        SentMessage,
         blank=True,
-        null=True,
-        verbose_name='ID сообщения для редактирования'
+        related_name="tasks",
+        verbose_name="Отправленные сообщения"
     )
     
     def __str__(self):
@@ -228,7 +250,13 @@ class Files(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='files', verbose_name='Задание')
     file_id = models.CharField(max_length=255, verbose_name='ID файла')
     file_type = models.CharField(max_length=50, choices=FILE_TYPE_CHOICES, verbose_name='Тип файла')
-    message_id = models.IntegerField(blank=True, null=True, verbose_name='ID сообщения')
+    # Вместо одного ID сообщения храним список отправленных сообщений
+    sent_messages = models.ManyToManyField(
+        SentMessage,
+        blank=True,
+        related_name="files",
+        verbose_name="Отправленные сообщения"
+    )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
 
     def __str__(self):

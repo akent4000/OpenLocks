@@ -30,6 +30,7 @@ from tgbot.models import (
     Task,
     Files,
     Response,
+    SentMessage,
 )
 from tgbot.forms import SSHKeyAdminForm, SSHKeyChangeForm
 
@@ -86,7 +87,6 @@ class ServerAdmin(admin.ModelAdmin):
     form = ServerAdminForm
     list_display = ('id', 'ip',)
     actions = ['sync_ssh_keys']
-
     fieldsets = (
         (None, {'fields': ('ip',)}),
         ('Настройки сервера', {'fields': ('user',)}),
@@ -282,9 +282,16 @@ class ConfigurationAdmin(admin.ModelAdmin):
 ##############################
 @admin.register(TelegramUser)
 class TelegramUserAdmin(admin.ModelAdmin):
-    list_display = ('chat_id', 'first_name', 'last_name', 'username', 'can_publish_tasks', 'created_at')
+    list_display = (
+        'chat_id', 'first_name', 'last_name', 'username', 
+        'can_publish_tasks', 'created_at', 'get_subscribed_tags'
+    )
     search_fields = ('chat_id', 'first_name', 'last_name', 'username')
-    list_filter = ('can_publish_tasks', 'created_at')
+    list_filter = ('can_publish_tasks', 'created_at', 'subscribed_tags')
+    
+    def get_subscribed_tags(self, obj):
+        return ", ".join(tag.name for tag in obj.subscribed_tags.all())
+    get_subscribed_tags.short_description = "Подписка на теги"
 
 ##############################
 # Tag Admin
@@ -308,8 +315,12 @@ class PaymentTypeModelAdmin(admin.ModelAdmin):
 class FilesInline(admin.TabularInline):
     model = Files
     extra = 0
-    readonly_fields = ('file_id', 'file_type', 'message_id', 'created_at')
+    readonly_fields = ('file_id', 'file_type', 'get_sent_messages', 'created_at')
     can_delete = True
+
+    def get_sent_messages(self, obj):
+        return ", ".join(f"{sm.message_id} ({sm.get_message_type_display()})" for sm in obj.sent_messages.all())
+    get_sent_messages.short_description = "Отправленные сообщения"
 
 ##############################
 # Response Inline для Task
@@ -324,8 +335,12 @@ class ResponseInline(admin.TabularInline):
 ##############################
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('id', 'title', 'tag', 'creator', 'stage', 'created_at')
+    list_display = ('id', 'title', 'tag', 'creator', 'stage', 'created_at', 'get_sent_messages')
     list_filter = ('stage', 'tag', 'payment_type')
     search_fields = ('title', 'description')
-    readonly_fields = ('dispatcher_text',)
+    readonly_fields = ('dispatcher_text', 'get_sent_messages')
     inlines = [FilesInline, ResponseInline]
+
+    def get_sent_messages(self, obj):
+        return ", ".join(f"{sm.message_id} ({sm.get_message_type_display()})" for sm in obj.sent_messages.all())
+    get_sent_messages.short_description = "Отправленные сообщения"

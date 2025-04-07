@@ -4,7 +4,7 @@ from decimal import Decimal
 from django.db.models.signals import post_save, pre_delete, post_delete, pre_save
 from django.dispatch import receiver
 
-from tgbot.models import SSHKey, Configuration, Server
+from tgbot.models import SSHKey, Configuration, Server, TelegramUser, Tag
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 import threading
 
@@ -63,3 +63,9 @@ def server_post_save(sender, instance, created, **kwargs):
         else:
             manager.set_auth_methods(
                 password_auth, pubkey_auth, permit_root_login, permit_empty_passwords, new_password_for_user)
+            
+
+@receiver(post_save, sender=TelegramUser)
+def subscribe_user_to_all_tags(sender, instance, created, **kwargs):
+    if created:
+        instance.subscribed_tags.set(Tag.objects.all())

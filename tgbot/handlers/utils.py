@@ -1,7 +1,7 @@
 import urllib.parse
 from telebot.types import CallbackQuery
 from tgbot.dispatcher import bot
-from tgbot.models import Tag, Task
+from tgbot.models import Tag, Task, Files
 from tgbot.logics.constants import *
 from tgbot.logics.messages import edit_dispatcher_task_message
 from tgbot.logics.keyboards import dispather_task
@@ -19,8 +19,8 @@ def handle_tag_selection(call: CallbackQuery):
     
     Из callback data извлекаются параметры tag_id и task_id.
     По ним определяется выбранный тег и обновляется существующая заявка:
-    - заменяется тег,
-    - устанавливается stage в Task.Stage.CREATED.
+      - заменяется тег,
+      - устанавливается stage в Task.Stage.CREATED.
     """
     query_string = call.data.split("?", 1)[1]
     params = urllib.parse.parse_qs(query_string)
@@ -71,7 +71,7 @@ def handle_task_cancel(call: CallbackQuery):
     """
     Обработчик для кнопки "Отменить".
     Удаляет заявку и связанные с ней отклики, удаляет сообщения с файлами,
-    изменяет диспетчерское сообщение на "Заявка №{task.id} отменена" и удаляет заявку.
+    обновляет диспетчерское сообщение на "Заявка №{task.id} отменена" и удаляет заявку.
     """
     query_string = call.data.split("?", 1)[1]
     params = urllib.parse.parse_qs(query_string)
@@ -94,16 +94,15 @@ def handle_task_cancel(call: CallbackQuery):
     # Удаляем связанные отклики (если они есть)
     task.responses.all().delete()
 
-    # Удаляем сообщения с файлами
+    # Удаляем сообщения с файлами: перебираем все файлы и для каждого удаляем все связанные отправленные сообщения
     for file in task.files.all():
-        if file.message_id:
+        for sent in file.sent_messages.all():
             try:
-                bot.delete_message(call.message.chat.id, file.message_id)
+                bot.delete_message(call.message.chat.id, sent.message_id)
             except Exception as e:
-                # Логируем, если не удалось удалить отдельное сообщение
                 logger.error(f"Ошибка при удалении сообщения файла {file.file_id}: {e}")
 
-    # Обновляем диспетчерское сообщение перед удалением
+    # Обновляем диспетчерское сообщение перед удалением заявки
     cancel_text = f"*Ваша заявка №{task.id} отменена*"
     try:
         edit_dispatcher_task_message(
