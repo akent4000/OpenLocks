@@ -299,3 +299,45 @@ def handle_payment_select(call: CallbackQuery):
         new_reply_markup=master_response_cancel_keyboard(response=response)
     )
     bot.answer_callback_query(call.id, "Ваш отклик отправлен")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.RESPONSE_CANCEL}?"))
+def handle_response_cancel(call: CallbackQuery):
+    """
+    Обработчик нажатия кнопки "Отменить" в master_response_cancel_keyboard.
+    
+    При нажатии:
+      1. Удаляются все сообщения из response.sent_messages (удаляются уведомления, отправленные создателю заявки).
+      2. Объект Response удаляется.
+      3. Выполняется изменение диспетчерского сообщения для мастера, которое теперь содержит текст:
+         "*Ваш отклик удалён*\n\n{task.task_text}"
+         и новую клавиатуру (payment_types_keyboard) для повторного выбора типа оплаты.
+    """
+    params = extract_query_params(call)
+    response_id = extract_int_param(call, params, CallbackData.RESPONSE_ID, "Ошибка: отсутствует response_id.")
+    if response_id is None:
+        return
+
+    try:
+        response_obj = Response.objects.get(id=response_id)
+    except Response.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: отклик не найден.")
+        return
+
+    master = response_obj.telegram_user
+    task = response_obj.task
+
+    for sent in response_obj.sent_messages.all():
+        try:
+            bot.delete_message(task.creator.chat_id, sent.message_id)
+        except Exception as e:
+            logger.error(f"Ошибка при удалении уведомления с ID {sent.message_id}: {e}")
+
+    response_obj.delete()
+    edit_task_message(
+        recipient=master,
+        task=task,
+        new_text=f"*Ваш отклик удалён*\n\n{task.task_text}",
+        new_reply_markup=payment_types_keyboard(task=task)
+    )
+
+    bot.answer_callback_query(call.id, "Ваш отклик удалён.")
