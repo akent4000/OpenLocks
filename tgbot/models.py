@@ -184,7 +184,7 @@ class Task(models.Model):
 
     tag = models.ForeignKey(
         Tag, 
-        on_delete=models.CASCADE,  
+        on_delete=models.SET_NULL,  
         blank=True,
         null=True,
         verbose_name='Тег',
@@ -208,14 +208,6 @@ class Task(models.Model):
         null=True,
         blank=True,
         verbose_name='ID сообщения для ответа'
-    )
-    selected_executor = models.ForeignKey(
-        TelegramUser,
-        on_delete=models.SET_NULL,
-        blank=True,
-        null=True,
-        related_name='assigned_tasks',
-        verbose_name='Выбранный исполнитель'
     )
     stage = models.CharField(
         max_length=20,
