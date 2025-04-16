@@ -28,3 +28,9 @@ def word_number_case_rubles(number_of_rubles):
 
 def word_number_case_tasks(number_of_tasks):
     return f"{word_number_case(int(number_of_tasks), 'заявка', 'заявки', 'заявок', addNumber=True)}"
+
+def word_number_case_was(number):
+    return f"{word_number_case(int(number), 'была', 'были', 'было', addNumber=False)}"
+
+def word_number_case_sent(number):
+    return f"{word_number_case(int(number), 'отправлена', 'отправлены', 'отправлено', addNumber=False)}"

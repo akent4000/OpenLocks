@@ -1,6 +1,6 @@
 from loguru import logger
 
-from tgbot.logics.text_helper import word_number_case_tasks
+from tgbot.logics.text_helper import *
 logger.add("logs/commands.log", rotation="10 MB", level="INFO")
 
 import datetime
@@ -86,7 +86,7 @@ def handle_today(message: Message):
     date_str = now.strftime("%d.%m.%Y")
     bot.send_message(
         chat_id=message.chat.id,
-        text=f"За {date_str} было отправлено {word_number_case_tasks(count)}"
+        text=f"За {date_str} {word_number_case_was(count)} {word_number_case_sent(count)} {word_number_case_tasks(count)}"
     )
 
 @bot.message_handler(commands=[Commands.TAGS])
