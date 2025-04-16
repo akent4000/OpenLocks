@@ -79,21 +79,27 @@ def master_response_cancel_keyboard(response: Response):
 def tag_toggle_keyboard(user: TelegramUser):
     """
     Генератор клавиатуры для настройки подписки на теги.
+    Между иконкой и названием тега добавляется ровно столько эм‑пробелов (\u2003),
+    чтобы все названия визуально выровнялись по ширине.
     """
     tags = Tag.objects.all()
     if not tags:
         logger.error("Не найден ни один тег для настройки подписки.")
         return None
 
+    names = [tag.name for tag in tags]
+    max_len = max(len(name) for name in names)
+
     subscribed = set(user.subscribed_tags.values_list("id", flat=True))
     keyboard = []
 
-    max_len = max(len(tag.name) for tag in tags)
     for tag in tags:
-        padded_name = tag.name.ljust(max_len + 2, "\u2003")  # добавляем немного справа
-        is_subscribed = tag.id in subscribed
-        status_icon = "🟢" if is_subscribed else "⚪️"
-        button_text = f"{status_icon} {padded_name}"
+        name = tag.name
+        spaces_needed = (max_len - len(name)) + 1
+        spacer = "\u2003" * spaces_needed
+
+        status_icon = "🟢" if tag.id in subscribed else "⚪️"
+        button_text = f"{status_icon}{spacer}{name}"
 
         button = InlineKeyboardButton(
             text=button_text,
