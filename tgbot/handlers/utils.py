@@ -282,5 +282,5 @@ def handle_payment_select(call: CallbackQuery):
     edit_task_message(recipient=master, 
                       task=task,
                       new_text=f"*Отклик отправлен*\n\n{task.task_text}",
-                      new_reply_markup=master_response_cancel_keyboard)
+                      new_reply_markup=master_response_cancel_keyboard(response=response))
     bot.answer_callback_query(call.id, "Ваш отклик отправлен.")
