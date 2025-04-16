@@ -71,3 +71,15 @@ def subscribe_user_to_all_tags(sender, instance, created, **kwargs):
         instance.subscribed_tags.set(Tag.objects.all())
 
 
+@receiver(post_save, sender=Tag)
+def subscribe_all_users_to_new_tag(sender, instance, created, **kwargs):
+    """
+    При создании нового тега подписывает всех существующих пользователей на него.
+    """
+    if not created:
+        return
+
+    users = TelegramUser.objects.all()
+    for user in users:
+        user.subscribed_tags.add(instance)
+    logger.info(f"Подписано {users.count()} пользователей на новый тег «{instance.name}»")
