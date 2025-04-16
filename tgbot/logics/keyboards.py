@@ -87,19 +87,14 @@ def tag_toggle_keyboard(user: TelegramUser):
         logger.error("Не найден ни один тег для настройки подписки.")
         return None
 
-    names = [tag.name for tag in tags]
-    max_len = max(len(name) for name in names)
-
     subscribed = set(user.subscribed_tags.values_list("id", flat=True))
     keyboard = []
 
     for tag in tags:
         name = tag.name
-        spaces_needed = (max_len - len(name)) + 1
-        spacer = "\u2003" * spaces_needed
 
         status_icon = "🟢" if tag.id in subscribed else "⚪️"
-        button_text = f"{status_icon}{spacer}{name}"
+        button_text = f"{status_icon} {name}"
 
         button = InlineKeyboardButton(
             text=button_text,
