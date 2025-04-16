@@ -1,11 +1,18 @@
-import urllib.parse
-from telebot.types import CallbackQuery
-from tgbot.dispatcher import bot
-from tgbot.models import Tag, Task, Files, TelegramUser
-from tgbot.logics.constants import *
-from tgbot.logics.messages import *
-from tgbot.logics.keyboards import *
 import re
+import urllib.parse
+from loguru import logger
+from telebot.types import CallbackQuery, MessageEntity
+
+from tgbot.dispatcher import bot
+from tgbot.models import *
+from tgbot.logics.constants import *
+from tgbot.logics.constants import CallbackData
+from tgbot.logics.messages import *
+from tgbot.logics.messages import edit_task_message
+from tgbot.logics.keyboards import *
+from tgbot.logics.keyboards import master_response_cancel_keyboard
+
+
 
 from loguru import logger
 logger.add("logs/utils.log", rotation="10 MB", level="INFO")
@@ -287,15 +294,7 @@ def handle_task_repeat(call: CallbackQuery):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.PAYMENT_SELECT}?"))
 def handle_payment_select(call: CallbackQuery):
     """
-    Обработчик для кнопок выбора типа оплаты.
-    При выборе типа оплаты:
-      1) Из callback data извлекаются payment_id и task_id.
-      2) Получается объект PaymentType и заявка.
-      3) Формируется уведомление для создателя заявки:
-         "Мастер [Имя Фамилия](tg://user?id=master_chat_id) хочет забрать заявку 0099 70/30"
-         где номер заявки форматируется с ведущими нулями, а имя мастера кликабельно.
-      4) Уведомление отправляется создателю заявки в виде ответа на диспетчерское сообщение (reply_to_message_id).
-      5) Создаётся объект Response, а отправленное уведомление сохраняется в поле sent_messages.
+    Обработчик кнопок выбора типа оплаты, с упоминанием мастера через text_mention.
     """
     master = get_user_from_call(call)
     if not master:
@@ -319,49 +318,65 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
         return
 
+    # Формируем текст сообщения, вставляя имя мастера как plain text
     raw_name = master.first_name + (f" {master.last_name}" if master.last_name else "")
-    name_esc = escape_md_v2(raw_name)
-    url = f"tg://user?id={master.chat_id}"
-    clickable_name = f"[{name_esc}]({url})"
-
     task_number = f"{task.id}"
+    notification_text = f"Мастер {raw_name} хочет забрать заявку {task_number} {payment_type.name}"
 
-    notification_text = f"Мастер {clickable_name} хочет забрать заявку {task_number} {payment_type.name}"
+    # Определяем, на какое диспетчерское сообщение отвечать
+    reply_to = None
+    if task.sent_messages.filter(telegram_user=task.creator).exists():
+        reply_to = task.sent_messages.filter(telegram_user=task.creator).last().message_id
 
-    reply_to_message_id = None
-    if task.sent_messages.exists():
-        reply_to_message_id = task.sent_messages.filter(telegram_user=task.creator).last().message_id
+    # Ищем позицию имени в тексте для text_mention
+    try:
+        offset = notification_text.index(raw_name)
+    except ValueError:
+        offset = None
 
+    entities = []
+    if offset is not None:
+        entities.append(MessageEntity(
+            type="text_mention",
+            offset=offset,
+            length=len(raw_name),
+            user=master
+        ))
+
+    # Отправляем сообщение без Markdown — с entities=text_mention
     try:
         sent_message = bot.send_message(
-            task.creator.chat_id,
-            notification_text,
-            parse_mode="MarkdownV2",
-            reply_to_message_id=reply_to_message_id
+            chat_id=task.creator.chat_id,
+            text=notification_text,
+            entities=entities,
+            reply_to_message_id=reply_to
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления создателю заявки {task.creator.chat_id}: {e}")
         bot.answer_callback_query(call.id, "Ошибка при отправке уведомления.")
         return
 
+    # Сохраняем отклик и записываем sent_message
     response = Response.objects.create(
         task=task,
         telegram_user=master,
         payment_type=payment_type
     )
-    sent_msg_obj = SentMessage.objects.create(
+    sent_rec = SentMessage.objects.create(
         message_id=sent_message.message_id,
         telegram_user=task.creator
     )
-    response.sent_messages.add(sent_msg_obj)
+    response.sent_messages.add(sent_rec)
     response.save()
 
+    # Уведомляем мастера
     edit_task_message(
-        recipient=master, 
+        recipient=master,
         task=task,
         new_text=f"*Ваш отклик отправлен*\n\n{task.task_text}",
         new_reply_markup=master_response_cancel_keyboard(response=response)
     )
+
     bot.answer_callback_query(call.id, "Ваш отклик отправлен")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.RESPONSE_CANCEL}?"))
