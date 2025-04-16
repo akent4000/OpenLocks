@@ -1,6 +1,7 @@
 import telebot
 from tgbot.models import Configuration, TelegramBotToken
 from loguru import logger
+from tgbot.logics.commands import init_bot_commands
 
 logger.add("logs/dispatcher.log", rotation="10 MB", level="INFO")
 
@@ -19,10 +20,15 @@ if Configuration.get_is_test_mode():
 bot = telebot.TeleBot(main_bot_token)
 logger.info("Main bot instance created")
 
+# Установка команд
+init_bot_commands(bot)
+logger.info("Bot commands initialized")
+
 # Тестовый бот может отсутствовать
 test_bot = None
 if test_bot_token:
     test_bot = telebot.TeleBot(test_bot_token)
+    init_bot_commands(test_bot)
     logger.info("Test bot instance created")
 else:
     logger.warning("Test bot token not provided — test_bot is not initialized.")
