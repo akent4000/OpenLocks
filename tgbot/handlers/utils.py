@@ -60,6 +60,43 @@ def get_tag_by_id(call: CallbackQuery, tag_id: int) -> Tag | None:
         bot.answer_callback_query(call.id, "Ошибка: выбранный тег не найден.")
         return None
 
+def delete_all_task_related(task: Task):
+    """
+    Удаляет все сообщения, связанные с заявкой:
+      - все SentMessage из task.sent_messages
+      - все SentMessage из Files.sent_messages
+      - все SentMessage из Response.sent_messages
+    """
+    # Сообщения по задаче (диспетчер и мастерам)
+    for sent in task.sent_messages.all():
+        try:
+            bot.delete_message(chat_id=sent.telegram_user.chat_id, message_id=sent.message_id)
+        except Exception as e:
+            logger.error(f"Не удалось удалить сообщение {sent.message_id} у {sent.telegram_user}: {e}")
+
+    # Сообщения, отправленные для файлов
+    for f in task.files.all():
+        for sent in f.sent_messages.all():
+            try:
+                bot.delete_message(chat_id=sent.telegram_user.chat_id, message_id=sent.message_id)
+            except Exception as e:
+                logger.error(f"Не удалось удалить сообщение файла {sent.message_id}: {e}")
+
+    # Сообщения, отправленные для откликов
+    for resp in task.responses.all():
+        for sent in resp.sent_messages.all():
+            try:
+                bot.delete_message(chat_id=sent.telegram_user.chat_id, message_id=sent.message_id)
+            except Exception as e:
+                logger.error(f"Не удалось удалить сообщение отклика {sent.message_id}: {e}")
+
+def get_task_for_creator(call: CallbackQuery, task_id: int) -> Task | None:
+    """Получает объект Task по task_id и chat_id создателя."""
+    try:
+        return Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
+    except Task.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
+        return None
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TAG_SELECT}?"))
 def handle_tag_selection(call: CallbackQuery):
@@ -110,13 +147,13 @@ def handle_tag_selection(call: CallbackQuery):
         reply_markup=payment_types_keyboard(task=task)
     )
 
-
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_CANCEL}?"))
 def handle_task_cancel(call: CallbackQuery):
     """
-    Обработчик для кнопки "Отменить".
-    Удаляет заявку и связанные с ней отклики, удаляет сообщения с файлами,
-    обновляет диспетчерское сообщение на "Заявка №{task.id} отменена" и удаляет заявку.
+    Обработчик для кнопки "Отменить":
+      - удаляет все связанные сообщения,
+      - удаляет отклики и файлы через каскад,
+      - удаляет саму заявку.
     """
     user = get_user_from_call(call)
     if not user:
@@ -127,40 +164,29 @@ def handle_task_cancel(call: CallbackQuery):
     if task_id is None:
         return
 
-    task = get_task_from_call(call, task_id)
+    task = get_task_for_creator(call, task_id)
     if not task:
         return
 
-    # Удаляем связанные отклики
+    # Удаляем все сообщения, связанные с заявкой
+    delete_all_task_related(task)
+
+    # Удаляем все отклики (и связанные с ними sent_messages через каскад)
     task.responses.all().delete()
 
-    # Удаляем сообщения с файлами
-    for file in task.files.all():
-        for sent in file.sent_messages.all():
-            try:
-                bot.delete_message(call.message.chat.id, sent.message_id)
-            except Exception as e:
-                logger.error(f"Ошибка при удалении сообщения файла {file.file_id}: {e}")
-
-    cancel_text = f"*Ваша заявка №{task.id} отменена*"
-    try:
-        edit_task_message(
-            recipient=user,
-            task=task, 
-            new_text=cancel_text,
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при редактировании dispatcher сообщения для задачи {task.id}: {e}")
-
+    # Заявка и файлы (Files) будут удалены каскадно
     task.delete()
+
     bot.answer_callback_query(call.id, "Заявка отменена.")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_CLOSE}?"))
 def handle_task_close(call: CallbackQuery):
     """
-    Обработчик для кнопки "Закрыть".
-    Изменяет состояние заявки на CLOSED и обновляет диспетчерское сообщение.
+    Обработчик для кнопки "Закрыть":
+      - меняет статус заявки,
+      - редактирует все сообщения диспетчера и мастеров,
+      - сохраняет изменения.
     """
     user = get_user_from_call(call)
     if not user:
@@ -171,30 +197,51 @@ def handle_task_close(call: CallbackQuery):
     if task_id is None:
         return
 
-    task = get_task_from_call(call, task_id)
+    task = get_task_for_creator(call, task_id)
     if not task:
         return
 
     task.stage = Task.Stage.CLOSED
     task.save()
 
-    close_text = f"*Ваша заявка №{task.id} закрыта*"
-    try:
-        edit_task_message(
-            recipient=user,
-            task=task, 
-            new_text=close_text,
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при редактировании dispatcher сообщения для закрытия задачи {task.id}: {e}")
+    closed_text = f"*Заявка закрыта*\n\n{task.task_text}"
+
+    # Обновляем сообщения диспетчера
+    for sent in task.sent_messages.filter(telegram_user=task.creator):
+        try:
+            bot.edit_message_text(
+                chat_id=task.creator.chat_id,
+                message_id=sent.message_id,
+                text=closed_text,
+                parse_mode="MarkdownV2",
+                reply_markup=repeat_task_dispather_task_keyboard(task)
+            )
+        except Exception as e:
+            logger.error(f"Не удалось отредактировать диспетчерское сообщение {sent.message_id}: {e}")
+
+    # Обновляем сообщения мастеров (отправленные через broadcast_task_to_subscribers)
+    for sent in task.sent_messages.exclude(telegram_user=task.creator):
+        try:
+            bot.edit_message_text(
+                chat_id=sent.telegram_user.chat_id,
+                message_id=sent.message_id,
+                text=closed_text,
+                parse_mode="MarkdownV2",
+                reply_markup=None
+            )
+        except Exception as e:
+            logger.error(f"Не удалось отредактировать сообщение мастера {sent.message_id}: {e}")
+
     bot.answer_callback_query(call.id, "Заявка закрыта.")
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_REPEAT}?"))
 def handle_task_repeat(call: CallbackQuery):
     """
-    Обработчик для кнопки "Повторить".
-    Пока просто сообщает, что заявка повторно выложена, и обновляет диспетчерское сообщение.
+    Обработчик для кнопки "Повторить":
+      - удаляет все сообщения, связанные с заявкой,
+      - удаляет все отклики,
+      - повторно рассылает задачу мастерам.
     """
     user = get_user_from_call(call)
     if not user:
@@ -205,19 +252,25 @@ def handle_task_repeat(call: CallbackQuery):
     if task_id is None:
         return
 
-    task = get_task_from_call(call, task_id)
+    task = get_task_for_creator(call, task_id)
     if not task:
         return
 
-    repeat_text = f"*Ваша заявка №{task.id} повторно выложена*"
-    try:
-        edit_task_message(
-            recipient=user,
-            task=task, 
-            new_text=repeat_text,
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при редактировании dispatcher сообщения для повторной выкладки задачи {task.id}: {e}")
+    # Удаляем все предыдущие сообщения и отклики
+    delete_all_task_related(task)
+    task.responses.all().delete()
+
+    # Сбрасываем этап на CREATED (чтобы снова можно было брать)
+    task.stage = Task.Stage.CREATED
+    task.save()
+
+    # Повторная рассылка
+    broadcast_task_to_subscribers(
+        task=task,
+        text=task.task_text,
+        reply_markup=payment_types_keyboard(task)
+    )
+
     bot.answer_callback_query(call.id, "Заявка повторно выложена.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.PAYMENT_SELECT}?"))

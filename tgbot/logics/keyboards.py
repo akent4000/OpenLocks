@@ -40,6 +40,16 @@ def dispather_task_keyboard(task: Task):
     markup = InlineKeyboardMarkup(keyboard)
     return markup
 
+def repeat_task_dispather_task_keyboard(task: Task):
+    keyboard = []
+    repeat_button = InlineKeyboardButton(
+        ButtonNames.REPEAT, 
+        callback_data=f"{CallbackData.TASK_REPEAT}?{CallbackData.TASK_ID}={task.id}"
+    )
+    keyboard.append([repeat_button])
+    markup = InlineKeyboardMarkup(keyboard)
+    return markup
+
 def payment_types_keyboard(task: Task):
     payment_types = PaymentTypeModel.objects.all()
     if not payment_types:

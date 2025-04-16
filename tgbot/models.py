@@ -183,7 +183,6 @@ class Task(models.Model):
     class Stage(models.TextChoices):
         PENDING_TAG = 'pending_tag', 'В ожидании выбора тэга'
         CREATED = 'created', 'Создано'
-        EXECUTOR_CHOSEN = 'executor_chosen', 'Выбран исполнитель'
         CLOSED = 'closed', 'Задание закрыто'
 
     tag = models.ForeignKey(
