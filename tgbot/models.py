@@ -256,7 +256,7 @@ class Files(models.Model):
     sent_messages = models.ManyToManyField(
         SentMessage,
         blank=True,
-        related_name="files",
+        related_name="file_sent_messages",  # Изменено на уникальное значение
         verbose_name="Отправленные сообщения"
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
@@ -296,7 +296,7 @@ class Response(models.Model):
     sent_messages = models.ManyToManyField(
         SentMessage,
         blank=True,
-        related_name="files",
+        related_name="response_sent_messages",
         verbose_name="Отправленные сообщения"
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания отклика')
