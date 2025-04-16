@@ -222,12 +222,6 @@ class Task(models.Model):
         related_name="tasks",
         verbose_name="Отправленные сообщения"
     )
-    
-    def delete(self, *args, **kwargs):
-        # удаляем связанные записи SentMessage
-        msg_ids = list(self.sent_messages.values_list('id', flat=True))
-        super().delete(*args, **kwargs)
-        SentMessage.objects.filter(id__in=msg_ids).delete()
 
     def __str__(self):
         return self.title
@@ -259,11 +253,6 @@ class Files(models.Model):
         verbose_name="Отправленные сообщения"
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
-
-    def delete(self, *args, **kwargs):
-        msg_ids = list(self.sent_messages.values_list('id', flat=True))
-        super().delete(*args, **kwargs)
-        SentMessage.objects.filter(id__in=msg_ids).delete()
 
     def __str__(self):
         return f"{self.get_file_type_display()} - {self.file_id}"
@@ -307,11 +296,6 @@ class Response(models.Model):
 
     def __str__(self):
         return f"Отклик пользователя {self.telegram_user} на задание {self.task}"
-
-    def delete(self, *args, **kwargs):
-        msg_ids = list(self.sent_messages.values_list('id', flat=True))
-        super().delete(*args, **kwargs)
-        SentMessage.objects.filter(id__in=msg_ids).delete()
 
     class Meta:
         verbose_name = 'Отклик'

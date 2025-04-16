@@ -83,3 +83,30 @@ def subscribe_all_users_to_new_tag(sender, instance, created, **kwargs):
     for user in users:
         user.subscribed_tags.add(instance)
     logger.info(f"Подписано {users.count()} пользователей на новый тег «{instance.name}»")
+
+@receiver(pre_delete, sender=Task)
+def cleanup_task_sent_messages(sender, instance, **kwargs):
+    """
+    Перед удалением Task чистим все связанные SentMessage.
+    """
+    msg_ids = list(instance.sent_messages.values_list('id', flat=True))
+    if msg_ids:
+        SentMessage.objects.filter(id__in=msg_ids).delete()
+
+@receiver(pre_delete, sender=Files)
+def cleanup_files_sent_messages(sender, instance, **kwargs):
+    """
+    Перед удалением Files чистим все связанные SentMessage.
+    """
+    msg_ids = list(instance.sent_messages.values_list('id', flat=True))
+    if msg_ids:
+        SentMessage.objects.filter(id__in=msg_ids).delete()
+
+@receiver(pre_delete, sender=Response)
+def cleanup_response_sent_messages(sender, instance, **kwargs):
+    """
+    Перед удалением Response чистим все связанные SentMessage.
+    """
+    msg_ids = list(instance.sent_messages.values_list('id', flat=True))
+    if msg_ids:
+        SentMessage.objects.filter(id__in=msg_ids).delete()
