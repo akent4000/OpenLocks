@@ -322,13 +322,17 @@ def handle_payment_select(call: CallbackQuery):
     task_number = f"{task.id}"
     reply_to = task.sent_messages.filter(telegram_user=task.creator).last().message_id if task.sent_messages.filter(telegram_user=task.creator).exists() else None
 
-    # Формирование текста и entities
     entities = []
     if call.from_user.username:
         mention = f"@{call.from_user.username}"
         notification_text = f"Мастер {mention} хочет забрать заявку {task_number} {payment_type.name}"
     else:
-        raw_name = call.from_user.first_name + (f" {call.from_user.last_name}" if call.from_user.last_name else "")
+        raw_name = (call.from_user.first_name or "") + (f" {call.from_user.last_name}" if call.from_user.last_name else "")
+        raw_name = raw_name.strip()
+
+        if not raw_name:
+            raw_name = str(call.from_user.id)
+
         notification_text = f"Мастер {raw_name} хочет забрать заявку {task_number} {payment_type.name}"
         try:
             offset = notification_text.index(raw_name)
@@ -338,8 +342,10 @@ def handle_payment_select(call: CallbackQuery):
                 length=len(raw_name),
                 user=call.from_user
             ))
+            used_text_mention = True
         except ValueError:
             logger.warning("Не удалось найти имя в тексте для text_mention")
+
 
     # Отправка сообщения
     try:
