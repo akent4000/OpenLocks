@@ -28,4 +28,7 @@ class Messages:
 После добавления введите /start
 """
     CHAT_ACTIVE_MESSAGE = "Чат активен, вы можете принимать и отправлять заявки, приятного пользования"
+
+class Constants:
+    MIN_TEXT_LENGTH = 13
     

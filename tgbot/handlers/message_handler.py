@@ -19,7 +19,6 @@ media_group_cache = {}
 # Ключ – chat_id, значение – кортеж (text, message, timer)
 pending_text_messages = {}
 
-MIN_TEXT_LENGTH = 13
 
 def extract_files_from_message(message: Message) -> list:
     """
@@ -37,16 +36,15 @@ def extract_files_from_message(message: Message) -> list:
 
 def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, files: list = None) -> None:
     """
-    Валидирует текст, получает пользователя, создает задачу, сохраняет файлы (если есть)
-    и отправляет сообщение с выбором тэга.
+    Валидирует текст, получает пользователя, создает задачу (с сохранением creator_message_id_to_reply),
+    сохраняет файлы (если есть) и отправляет сообщение с выбором тэга.
     """
-    if len(text) < MIN_TEXT_LENGTH:
+    if len(text) < Constants.MIN_TEXT_LENGTH:
         logger.info(f"Заявка от пользователя {chat_id} слишком короткая: '{text}'")
         return
 
-    try:
-        user = TelegramUser.get_user_by_chat_id(chat_id=chat_id)
-    except TelegramUser.DoesNotExist:
+    user = TelegramUser.get_user_by_chat_id(chat_id=chat_id)
+    if not user:
         logger.error(f"Пользователь {chat_id} не найден. Заявка не сохранена.")
         return
 
@@ -62,9 +60,10 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
         description=text,
         payment_type=None,
         creator=user,
+        creator_message_id_to_reply=reply_to_message_id,
         stage=Task.Stage.PENDING_TAG
     )
-    logger.info(f"Задание сохранено с id: {task.id}")
+    logger.info(f"Задание сохранено с id: {task.id}, reply_to={reply_to_message_id}")
 
     if files:
         for f in files:
@@ -75,11 +74,11 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
             )
 
     send_task_message(
-        recipient=user, 
+        recipient=user,
         task=task,
-        text=f"*Выберите тэг для вашей заявкиs*\n{task.task_text}",
-        reply_markup=tags_keyboard(task), 
-        reply_to_message_id=reply_to_message_id,
+        text=f"*Выберите тэг для вашей заявки*\n{task.task_text}",
+        reply_markup=tags_keyboard(task),
+        reply_to_message_id=task.creator_message_id_to_reply,
     )
 
 def process_pending_text(chat_id: int, message: Message, text: str):
@@ -117,7 +116,7 @@ def process_media_group(media_group_id: str):
     if not text:
         logger.info("Media group без подписи. Заявка не обработана.")
         return
-    if len(text) < MIN_TEXT_LENGTH:
+    if len(text) < Constants.MIN_TEXT_LENGTH:
         logger.info(f"Media group с короткой подписью: '{text}'. Заявка не обработана.")
         return
 

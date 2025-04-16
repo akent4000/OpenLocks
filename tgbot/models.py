@@ -207,6 +207,7 @@ class Task(models.Model):
         related_name='created_tasks',
         verbose_name='Кто дал задание'
     )
+    creator_message_id_to_reply = models.IntegerField(verbose_name='ID сообщения для ответа')
     selected_executor = models.ForeignKey(
         TelegramUser,
         on_delete=models.SET_NULL,

@@ -266,6 +266,7 @@ def handle_task_repeat(call: CallbackQuery):
         recipient=user, 
         task=task,
         text=f"*Заявка повторно выложена*:\n{task.task_text}",
+        reply_to_message_id=task.creator_message_id_to_reply,
         reply_markup=dispather_task_keyboard(task=task),
     )
 
