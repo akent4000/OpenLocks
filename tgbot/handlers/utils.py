@@ -320,7 +320,7 @@ def handle_payment_select(call: CallbackQuery):
         return
 
     raw_name = master.first_name + (f" {master.last_name}" if master.last_name else "")
-    name_esc = escape_md_v2("test")
+    name_esc = escape_md_v2(raw_name)
     url = f"tg://user?id={master.chat_id}"
     clickable_name = f"[{name_esc}]({url})"
 
