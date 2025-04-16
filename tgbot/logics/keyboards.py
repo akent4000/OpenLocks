@@ -102,4 +102,11 @@ def tag_toggle_keyboard(user: TelegramUser):
         )
         keyboard.append([button])
 
+
+    close_button = InlineKeyboardButton(
+        ButtonNames.CLOSE, 
+        callback_data=f"{CallbackData.CLOSE_TAG_TOGGLES}"
+    )
+
+    keyboard.append(close_button)
     return InlineKeyboardMarkup(keyboard)
