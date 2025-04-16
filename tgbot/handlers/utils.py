@@ -436,3 +436,58 @@ def handle_response_cancel(call: CallbackQuery):
     )
 
     bot.answer_callback_query(call.id, "Ваш отклик удалён.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TAG_TOGGLE}?"))
+def handle_tag_toggle(call: CallbackQuery):
+    """
+    Переключает подписку пользователя на тег и обновляет клавиатуру.
+    """
+    user = get_user_from_call(call)
+    if not user:
+        return
+
+    params = extract_query_params(call)
+    tag_id = extract_int_param(call, params, CallbackData.TAG_ID, "Ошибка: отсутствует tag_id.")
+    if tag_id is None:
+        return
+
+    try:
+        tag = Tag.objects.get(id=tag_id)
+    except Tag.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: тег не найден.")
+        return
+
+    if tag.id in set(user.subscribed_tags.values_list("id", flat=True)):
+        user.subscribed_tags.remove(tag)
+        action = "отписались"
+    else:
+        user.subscribed_tags.add(tag)
+        action = "подписались"
+    user.save()
+
+    new_markup = tag_toggle_keyboard(user)
+    try:
+        bot.edit_message_reply_markup(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id,
+            reply_markup=new_markup
+        )
+    except Exception as e:
+        logger.error(f"Не удалось обновить клавиатуру тегов: {e}")
+
+    bot.answer_callback_query(call.id, f"Вы {action} от тега «{tag.name}»")
+
+@bot.callback_query_handler(func=lambda call: call.data == CallbackData.CLOSE_TAG_TOGGLES)
+def handle_close_tag_toggles(call: CallbackQuery):
+    """
+    Закрывает меню настройки тегов — удаляет сообщение с клавиатурой.
+    """
+    try:
+        bot.delete_message(
+            chat_id=call.message.chat.id,
+            message_id=call.message.message_id
+        )
+    except Exception as e:
+        logger.error(f"Не удалось удалить сообщение с тегами: {e}")
+
+    bot.answer_callback_query(call.id)
