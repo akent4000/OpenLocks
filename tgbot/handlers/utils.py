@@ -340,10 +340,9 @@ def handle_payment_select(call: CallbackQuery):
             type="text_mention",
             offset=offset,
             length=len(raw_name),
-            user=master
+            user=call.from_user
         ))
 
-    # Отправляем сообщение без Markdown — с entities=text_mention
     try:
         sent_message = bot.send_message(
             chat_id=task.creator.chat_id,
@@ -356,7 +355,6 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, "Ошибка при отправке уведомления.")
         return
 
-    # Сохраняем отклик и записываем sent_message
     response = Response.objects.create(
         task=task,
         telegram_user=master,
@@ -369,7 +367,6 @@ def handle_payment_select(call: CallbackQuery):
     response.sent_messages.add(sent_rec)
     response.save()
 
-    # Уведомляем мастера
     edit_task_message(
         recipient=master,
         task=task,
