@@ -19,7 +19,7 @@ logger.add("logs/utils.log", rotation="10 MB", level="INFO")
 
 def escape_md_v2(text: str) -> str:
     """
-    Экранирует спецсимволы для MarkdownV2.
+    Экранирует спецсимволы для Markdown.
     """
     return re.sub(r'([_*[\]()~`>#+\-=|{}.!])', r'\\\1', text)
 
@@ -226,7 +226,7 @@ def handle_task_close(call: CallbackQuery):
                 chat_id=task.creator.chat_id,
                 message_id=sent.message_id,
                 text=closed_text,
-                parse_mode="MarkdownV2",
+                parse_mode="Markdown",
                 reply_markup=repeat_task_dispather_task_keyboard(task)
             )
         except Exception as e:
@@ -239,7 +239,7 @@ def handle_task_close(call: CallbackQuery):
                 chat_id=sent.telegram_user.chat_id,
                 message_id=sent.message_id,
                 text=closed_text,
-                parse_mode="MarkdownV2",
+                parse_mode="Markdown",
                 reply_markup=None
             )
         except Exception as e:

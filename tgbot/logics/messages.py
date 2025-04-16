@@ -21,14 +21,14 @@ def send_welcome_message(created: bool, user: TelegramUser) -> None:
         if created or not user.can_publish_tasks:
             message_text = Messages.WELCOME_MESSAGE
             try:
-                sent_message = bot.send_message(user.chat_id, message_text, parse_mode="MarkdownV2")
+                sent_message = bot.send_message(user.chat_id, message_text, parse_mode="Markdown")
                 logger.info(f"Отправлено приветственное сообщение (WELCOME_MESSAGE) пользователю {user.chat_id}")
             except Exception as e:
                 logger.error(f"Ошибка при отправке приветственного сообщения пользователю {user.chat_id}: {e}")
         else:
             message_text = Messages.CHAT_ACTIVE_MESSAGE
             try:
-                sent_message = bot.send_message(user.chat_id, message_text, parse_mode="MarkdownV2")
+                sent_message = bot.send_message(user.chat_id, message_text, parse_mode="Markdown")
                 logger.info(f"Отправлено активное сообщение (CHAT_ACTIVE_MESSAGE) пользователю {user.chat_id}")
             except Exception as e:
                 logger.error(f"Ошибка при отправке активного сообщения пользователю {user.chat_id}: {e}")
@@ -91,7 +91,7 @@ def send_task_files(recipient: TelegramUser, task: Task, reply_to_message_id: Op
                 elif f.file_type == "document":
                     msg = bot.send_document(chat_id, document=f.file_id, reply_to_message_id=reply_to_message_id)
                 else:
-                    msg = bot.send_message(chat_id, "Неподдерживаемый тип файла", reply_to_message_id=reply_to_message_id, parse_mode="MarkdownV2")
+                    msg = bot.send_message(chat_id, "Неподдерживаемый тип файла", reply_to_message_id=reply_to_message_id, parse_mode="Markdown")
                 if idx == 0:
                     first_msg_id = msg.message_id
                 sent = SentMessage.objects.create(
@@ -127,7 +127,7 @@ def send_task_message(
             chat_id,
             text,
             reply_to_message_id=reply_id,
-            parse_mode="MarkdownV2",
+            parse_mode="Markdown",
             reply_markup=reply_markup
         )
         sent = SentMessage.objects.create(
@@ -160,7 +160,7 @@ def edit_task_message(
             chat_id=chat_id,
             message_id=sent.message_id,
             text=new_text,
-            parse_mode="MarkdownV2",
+            parse_mode="Markdown",
             reply_markup=new_reply_markup
         )
         logger.info(f"Отредактировано сообщение задачи {task.id} для пользователя {chat_id}")
@@ -170,7 +170,7 @@ def edit_task_message(
             new_msg = bot.send_message(
                 chat_id,
                 new_text,
-                parse_mode="MarkdownV2",
+                parse_mode="Markdown",
                 reply_markup=new_reply_markup
             )
             new_sent = SentMessage.objects.create(
