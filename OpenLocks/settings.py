@@ -30,9 +30,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["localhost", "openlocks.testdomain.su"]
 
+USE_I18N = True
 LANGUAGE_CODE = 'ru'
 TIME_ZONE = 'UTC'
-USE_I18N = True
+USE_L10N = True
 USE_TZ = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
@@ -68,6 +69,7 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'django.middleware.locale.LocaleMiddleware',    
 ]
 
 ROOT_URLCONF = 'OpenLocks.urls'
