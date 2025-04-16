@@ -87,7 +87,7 @@ class ServerAdminForm(forms.ModelForm):
 @admin.register(Server)
 class ServerAdmin(SingletonModelAdmin):
     form = ServerAdminForm
-    change_form_template = 'admin/server_change_form.html'
+    change_form_template = 'admin/server/change_form.html'
     actions = ['sync_ssh_keys']
     fieldsets = (
         (None, {'fields': ('ip',)}),
