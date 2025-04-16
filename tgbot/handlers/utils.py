@@ -266,7 +266,7 @@ def handle_payment_select(call: CallbackQuery):
 
     reply_to_message_id = None
     if task.sent_messages.exists():
-        reply_to_message_id = task.sent_messages.order_by("created_at").first().message_id
+        reply_to_message_id = task.sent_messages.filter(telegram_user=task.creator).last().message_id
 
     try:
         sent_message = bot.send_message(
