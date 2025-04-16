@@ -85,7 +85,7 @@ def tag_toggle_keyboard(user: TelegramUser):
         logger.error("Не найден ни один тег для настройки подписки.")
         return None
 
-    subscribed = set(user.tags.values_list("id", flat=True))
+    subscribed = set(user.subscribed_tags.values_list("id", flat=True))
     keyboard = []
 
     for tag in tags:
