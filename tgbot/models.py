@@ -253,7 +253,6 @@ class Files(models.Model):
     task = models.ForeignKey(Task, on_delete=models.CASCADE, related_name='files', verbose_name='Задание')
     file_id = models.CharField(max_length=255, verbose_name='ID файла')
     file_type = models.CharField(max_length=50, choices=FILE_TYPE_CHOICES, verbose_name='Тип файла')
-    # Вместо одного ID сообщения храним список отправленных сообщений
     sent_messages = models.ManyToManyField(
         SentMessage,
         blank=True,
@@ -293,6 +292,12 @@ class Response(models.Model):
         null=True,
         blank=True,
         verbose_name='Тип оплаты'
+    )
+    sent_messages = models.ManyToManyField(
+        SentMessage,
+        blank=True,
+        related_name="files",
+        verbose_name="Отправленные сообщения"
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания отклика')
 

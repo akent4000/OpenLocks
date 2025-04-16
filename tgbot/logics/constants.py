@@ -7,6 +7,9 @@ class CallbackData:
     TASK_CANCEL = "task_cancel"
     TASK_REPEAT = "task_repeat"
 
+    RESPONSE_CANCEL = "response_cancel"
+    RESPONSE_ID = "response_id"
+
     PAYMENT_SELECT = "payment_select"
     PAYMENT_ID = "payment_id"
 

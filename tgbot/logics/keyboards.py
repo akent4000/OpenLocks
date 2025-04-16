@@ -55,3 +55,13 @@ def payment_types_keyboard(task: Task):
         keyboard.append([button])
     markup = InlineKeyboardMarkup(keyboard)
     return markup
+
+def master_response_cancel_keyboard(response: Response):
+    keyboard = []
+    cancel_button = InlineKeyboardButton(
+        ButtonNames.CANCEL, 
+        callback_data=f"{CallbackData.RESPONSE_CANCEL}?{CallbackData.RESPONSE_ID}={response.id}"
+    )
+    keyboard.append([cancel_button])
+    markup = InlineKeyboardMarkup(keyboard)
+    return markup

@@ -219,3 +219,65 @@ def handle_task_repeat(call: CallbackQuery):
     except Exception as e:
         logger.error(f"Ошибка при редактировании dispatcher сообщения для повторной выкладки задачи {task.id}: {e}")
     bot.answer_callback_query(call.id, "Заявка повторно выложена.")
+
+@bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.PAYMENT_SELECT}?"))
+def handle_payment_select(call: CallbackQuery):
+    """
+    Обработчик для кнопок выбора типа оплаты.
+    """
+    master = get_user_from_call(call)
+    if not master:
+        return
+
+    params = extract_query_params(call)
+    payment_id = extract_int_param(call, params, CallbackData.PAYMENT_ID, "Ошибка: отсутствует payment_id.")
+    task_id = extract_int_param(call, params, CallbackData.TASK_ID, "Ошибка: отсутствует task_id.")
+    if payment_id is None or task_id is None:
+        return
+
+    try:
+        payment_type = PaymentTypeModel.objects.get(id=payment_id)
+    except PaymentTypeModel.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: выбранный тип оплаты не найден.")
+        return
+
+    try:
+        task = Task.objects.get(id=task_id)
+    except Task.DoesNotExist:
+        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
+        return
+
+    display_name = master.first_name
+    if master.last_name:
+        display_name += f" {master.last_name}"
+    clickable_name = f"[{display_name}](tg://user?id={master.chat_id})"
+
+    task_number = f"{task.id}"
+
+    notification_text = f"Мастер {clickable_name} хочет забрать заявку {task_number} {payment_type.name}"
+
+    try:
+        sent_message = bot.send_message(
+            task.creator.chat_id,
+            notification_text,
+            parse_mode="MarkdownV2"
+        )
+    except Exception as e:
+        logger.error(f"Ошибка при отправке уведомления создателю заявки {task.creator.chat_id}: {e}")
+        bot.answer_callback_query(call.id, "Ошибка при отправке уведомления.")
+        return
+
+    response = Response.objects.create(
+        task=task,
+        telegram_user=master,
+        payment_type=payment_type
+    )
+    sent_msg_obj = SentMessage.objects.create(
+        message_id=sent_message.message_id,
+        telegram_user=task.creator
+    )
+    response.sent_messages.add(sent_msg_obj)
+    response.save()
+
+    edit_task_message(recipient=master, task=task, new_reply_markup=master_response_cancel_keyboard)
+    bot.answer_callback_query(call.id, "Ваш отклик отправлен.")
