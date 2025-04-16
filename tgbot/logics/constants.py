@@ -13,6 +13,14 @@ class CallbackData:
     PAYMENT_SELECT = "payment_select"
     PAYMENT_ID = "payment_id"
 
+class Commands:
+    START = "start"
+    RULES = "rules"
+    CHAT = "chat"
+    ADMIN = "admin"
+    TODAY = "today"
+    TAGS = "tags"
+
 class ButtonNames:
     CLOSE = "Закрыть"
     CANCEL = "Отменить"
