@@ -5,11 +5,16 @@ from tgbot.models import Tag, Task, Files, TelegramUser
 from tgbot.logics.constants import *
 from tgbot.logics.messages import *
 from tgbot.logics.keyboards import *
-from telebot.util import escape_markdown
+import re
 
 from loguru import logger
 logger.add("logs/utils.log", rotation="10 MB", level="INFO")
 
+def escape_md_v2(text: str) -> str:
+    """
+    Экранирует спецсимволы для MarkdownV2.
+    """
+    return re.sub(r'([_*[\]()~`>#+\-=|{}.!])', r'\\\1', text)
 
 def get_user_from_call(call: CallbackQuery) -> TelegramUser | None:
     """Извлекает пользователя по chat_id из сообщения callback."""
@@ -314,10 +319,10 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
         return
 
-    raw = master.first_name + (f" {master.last_name}" if master.last_name else "")
-    name_esc = escape_markdown(raw, version=2)
-    url_part = f"tg://user\\?id={master.chat_id}"
-    clickable_name = f"[{name_esc}]({url_part})"
+    raw_name = master.first_name + (f" {master.last_name}" if master.last_name else "")
+    name_esc = escape_md_v2(raw_name)
+    url = f"tg://user?id={master.chat_id}"
+    clickable_name = f"[{name_esc}]({url})"
 
     task_number = f"{task.id}"
 
