@@ -256,15 +256,19 @@ def handle_task_repeat(call: CallbackQuery):
     if not task:
         return
 
-    # Удаляем все предыдущие сообщения и отклики
     delete_all_task_related(task)
     task.responses.all().delete()
 
-    # Сбрасываем этап на CREATED (чтобы снова можно было брать)
     task.stage = Task.Stage.CREATED
     task.save()
 
-    # Повторная рассылка
+    send_task_message(
+        recipient=user, 
+        task=task,
+        text=f"*Заявка повторно выложена*:\n{task.task_text}",
+        reply_markup=dispather_task_keyboard(task=task),
+    )
+
     broadcast_task_to_subscribers(
         task=task,
         text=task.task_text,
