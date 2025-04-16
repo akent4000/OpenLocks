@@ -207,7 +207,11 @@ class Task(models.Model):
         related_name='created_tasks',
         verbose_name='Кто дал задание'
     )
-    creator_message_id_to_reply = models.IntegerField(verbose_name='ID сообщения для ответа')
+    creator_message_id_to_reply = models.IntegerField(
+        null=True,
+        blank=True,
+        verbose_name='ID сообщения для ответа'
+    )
     selected_executor = models.ForeignKey(
         TelegramUser,
         on_delete=models.SET_NULL,
@@ -256,7 +260,7 @@ class Files(models.Model):
     sent_messages = models.ManyToManyField(
         SentMessage,
         blank=True,
-        related_name="file_sent_messages",  # Изменено на уникальное значение
+        related_name="file_sent_messages",
         verbose_name="Отправленные сообщения"
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
