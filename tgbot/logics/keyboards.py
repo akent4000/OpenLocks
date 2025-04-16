@@ -88,10 +88,12 @@ def tag_toggle_keyboard(user: TelegramUser):
     subscribed = set(user.subscribed_tags.values_list("id", flat=True))
     keyboard = []
 
+    max_len = max(len(tag.name) for tag in tags)
     for tag in tags:
+        padded_name = tag.name.ljust(max_len + 2, "\u2003")  # добавляем немного справа
         is_subscribed = tag.id in subscribed
         status_icon = "🟢" if is_subscribed else "⚪️"
-        button_text = f"{status_icon} {tag.name}"
+        button_text = f"{status_icon} {padded_name}"
 
         button = InlineKeyboardButton(
             text=button_text,
