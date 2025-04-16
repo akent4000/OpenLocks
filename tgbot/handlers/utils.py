@@ -294,7 +294,8 @@ def handle_task_repeat(call: CallbackQuery):
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.PAYMENT_SELECT}?"))
 def handle_payment_select(call: CallbackQuery):
     """
-    Обработчик кнопок выбора типа оплаты, с упоминанием мастера через text_mention.
+    Обработчик кнопок выбора типа оплаты, с упоминанием мастера.
+    Приоритет: @username, если нет — text_mention, если не сработал — уведомление.
     """
     master = get_user_from_call(call)
     if not master:
@@ -318,36 +319,34 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
         return
 
-    # Формируем текст сообщения, вставляя имя мастера как plain text
-    raw_name = master.first_name + (f" {master.last_name}" if master.last_name else "")
     task_number = f"{task.id}"
-    notification_text = f"Мастер {raw_name} хочет забрать заявку {task_number} {payment_type.name}"
+    reply_to = task.sent_messages.filter(telegram_user=task.creator).last().message_id if task.sent_messages.filter(telegram_user=task.creator).exists() else None
 
-    # Определяем, на какое диспетчерское сообщение отвечать
-    reply_to = None
-    if task.sent_messages.filter(telegram_user=task.creator).exists():
-        reply_to = task.sent_messages.filter(telegram_user=task.creator).last().message_id
-
-    # Ищем позицию имени в тексте для text_mention
-    try:
-        offset = notification_text.index(raw_name)
-    except ValueError:
-        offset = None
-
+    # Формирование текста и entities
     entities = []
-    if offset is not None:
-        entities.append(MessageEntity(
-            type="text_mention",
-            offset=offset,
-            length=len(raw_name),
-            user=call.from_user
-        ))
+    if call.from_user.username:
+        mention = f"@{call.from_user.username}"
+        notification_text = f"Мастер {mention} хочет забрать заявку {task_number} {payment_type.name}"
+    else:
+        raw_name = call.from_user.first_name + (f" {call.from_user.last_name}" if call.from_user.last_name else "")
+        notification_text = f"Мастер {raw_name} хочет забрать заявку {task_number} {payment_type.name}"
+        try:
+            offset = notification_text.index(raw_name)
+            entities.append(MessageEntity(
+                type="text_mention",
+                offset=offset,
+                length=len(raw_name),
+                user=call.from_user
+            ))
+        except ValueError:
+            logger.warning("Не удалось найти имя в тексте для text_mention")
 
+    # Отправка сообщения
     try:
         sent_message = bot.send_message(
             chat_id=task.creator.chat_id,
             text=notification_text,
-            entities=entities,
+            entities=entities if entities else None,
             reply_to_message_id=reply_to
         )
     except Exception as e:
@@ -355,6 +354,19 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, "Ошибка при отправке уведомления.")
         return
 
+    # Проверяем, сработал ли text_mention
+    if not call.from_user.username and not sent_message.entities:
+        try:
+            bot.send_message(
+                chat_id=call.from_user.id,
+                text="В Telegram не удалось создать ссылку на ваше имя. "
+                     "Добавьте бота в исключения приватности: *Настройки Telegram → Конфиденциальность → Пересылка сообщений*.",
+                parse_mode="Markdown"
+            )
+        except Exception as e:
+            logger.warning(f"Не удалось отправить предупреждение мастеру: {e}")
+
+    # Сохраняем отклик и отправленное сообщение
     response = Response.objects.create(
         task=task,
         telegram_user=master,
@@ -375,6 +387,7 @@ def handle_payment_select(call: CallbackQuery):
     )
 
     bot.answer_callback_query(call.id, "Ваш отклик отправлен")
+
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.RESPONSE_CANCEL}?"))
 def handle_response_cancel(call: CallbackQuery):
