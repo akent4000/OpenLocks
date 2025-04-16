@@ -5,6 +5,7 @@ from tgbot.models import Tag, Task, Files, TelegramUser
 from tgbot.logics.constants import *
 from tgbot.logics.messages import *
 from tgbot.logics.keyboards import *
+from telebot.util import escape_markdown
 
 from loguru import logger
 logger.add("logs/utils.log", rotation="10 MB", level="INFO")
@@ -313,10 +314,10 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
         return
 
-    display_name = master.first_name
-    if master.last_name:
-        display_name += f" {master.last_name}"
-    clickable_name = f"[{display_name}](tg://user?id={master.chat_id})"
+    raw = master.first_name + (f" {master.last_name}" if master.last_name else "")
+    name_esc = escape_markdown(raw, version=2)
+    url_part = f"tg://user\\?id={master.chat_id}"
+    clickable_name = f"[{name_esc}]({url_part})"
 
     task_number = f"{task.id}"
 
