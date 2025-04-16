@@ -1,0 +1,8 @@
+{# templates/admin/base.html #}
+{% extends "admin/base.html" %}
+{% load static %}
+
+{% block extrahead %}
+  {{ block.super }}
+  <link rel="shortcut icon" href="{% static 'img/favicon.ico' %}" type="image/x-icon">
+{% endblock %}
