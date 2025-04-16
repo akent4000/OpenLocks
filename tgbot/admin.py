@@ -263,15 +263,34 @@ class ConfigurationAdmin(SingletonModelAdmin):
 @admin.register(TelegramUser)
 class TelegramUserAdmin(admin.ModelAdmin):
     list_display = (
-        'chat_id', 'first_name', 'last_name', 'username', 
+        'chat_id', 'first_name', 'last_name', 'username',
         'can_publish_tasks', 'created_at', 'get_subscribed_tags'
     )
     search_fields = ('chat_id', 'first_name', 'last_name', 'username')
     list_filter = ('can_publish_tasks', 'created_at', 'subscribed_tags')
+    actions = ['allow_publish_tasks', 'disallow_publish_tasks']
 
     def get_subscribed_tags(self, obj):
         return ", ".join(tag.name for tag in obj.subscribed_tags.all())
     get_subscribed_tags.short_description = "Подписка на теги"
+
+    @admin.action(description="Разрешить доступ к публикации заданий")
+    def allow_publish_tasks(self, request, queryset):
+        updated = queryset.update(can_publish_tasks=True)
+        self.message_user(
+            request,
+            f"Доступ к публикации заданий выдан {updated} пользователю(ям).",
+            level=messages.SUCCESS
+        )
+
+    @admin.action(description="Запретить доступ к публикации заданий")
+    def disallow_publish_tasks(self, request, queryset):
+        updated = queryset.update(can_publish_tasks=False)
+        self.message_user(
+            request,
+            f"Доступ к публикации заданий отозван у {updated} пользователя(ей).",
+            level=messages.SUCCESS
+        )
 
 ##############################
 # Tag Admin
