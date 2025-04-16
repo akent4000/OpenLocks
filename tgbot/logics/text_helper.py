@@ -25,3 +25,6 @@ def word_number_case_hours(number_of_days):
 
 def word_number_case_rubles(number_of_rubles):
     return f"{word_number_case(int(number_of_rubles), 'рубль', 'рубля', 'рублей', addNumber=True)}"
+
+def word_number_case_tasks(number_of_tasks):
+    return f"{word_number_case(int(number_of_tasks), 'заявка', 'заявки', 'заявок', addNumber=True)}"
