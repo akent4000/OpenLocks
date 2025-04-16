@@ -224,6 +224,14 @@ def handle_task_repeat(call: CallbackQuery):
 def handle_payment_select(call: CallbackQuery):
     """
     Обработчик для кнопок выбора типа оплаты.
+    При выборе типа оплаты:
+      1) Из callback data извлекаются payment_id и task_id.
+      2) Получается объект PaymentType и заявка.
+      3) Формируется уведомление для создателя заявки:
+         "Мастер [Имя Фамилия](tg://user?id=master_chat_id) хочет забрать заявку 0099 70/30"
+         где номер заявки форматируется с ведущими нулями, а имя мастера кликабельно.
+      4) Уведомление отправляется создателю заявки в виде ответа на диспетчерское сообщение (reply_to_message_id).
+      5) Создаётся объект Response, а отправленное уведомление сохраняется в поле sent_messages.
     """
     master = get_user_from_call(call)
     if not master:
@@ -256,11 +264,16 @@ def handle_payment_select(call: CallbackQuery):
 
     notification_text = f"Мастер {clickable_name} хочет забрать заявку {task_number} {payment_type.name}"
 
+    reply_to_message_id = None
+    if task.sent_messages.exists():
+        reply_to_message_id = task.sent_messages.order_by("created_at").first().message_id
+
     try:
         sent_message = bot.send_message(
             task.creator.chat_id,
             notification_text,
-            parse_mode="MarkdownV2"
+            parse_mode="MarkdownV2",
+            reply_to_message_id=reply_to_message_id
         )
     except Exception as e:
         logger.error(f"Ошибка при отправке уведомления создателю заявки {task.creator.chat_id}: {e}")
@@ -279,8 +292,10 @@ def handle_payment_select(call: CallbackQuery):
     response.sent_messages.add(sent_msg_obj)
     response.save()
 
-    edit_task_message(recipient=master, 
-                      task=task,
-                      new_text=f"*Отклик отправлен*\n\n{task.task_text}",
-                      new_reply_markup=master_response_cancel_keyboard(response=response))
-    bot.answer_callback_query(call.id, "Ваш отклик отправлен.")
+    edit_task_message(
+        recipient=master, 
+        task=task,
+        new_text=f"*Ваш отклик отправлен*\n\n{task.task_text}",
+        new_reply_markup=master_response_cancel_keyboard(response=response)
+    )
+    bot.answer_callback_query(call.id, "Ваш отклик отправлен")
