@@ -75,3 +75,28 @@ def master_response_cancel_keyboard(response: Response):
     keyboard.append([cancel_button])
     markup = InlineKeyboardMarkup(keyboard)
     return markup
+
+def tag_toggle_keyboard(user: TelegramUser):
+    """
+    Генератор клавиатуры для настройки подписки на теги.
+    """
+    tags = Tag.objects.all()
+    if not tags:
+        logger.error("Не найден ни один тег для настройки подписки.")
+        return None
+
+    subscribed = set(user.tags.values_list("id", flat=True))
+    keyboard = []
+
+    for tag in tags:
+        is_subscribed = tag.id in subscribed
+        status_icon = "🟢" if is_subscribed else "⚪️"
+        button_text = f"{status_icon} {tag.name}"
+
+        button = InlineKeyboardButton(
+            text=button_text,
+            callback_data=f"{CallbackData.TAG_TOGGLE}?{CallbackData.TAG_ID}={tag.id}"
+        )
+        keyboard.append([button])
+
+    return InlineKeyboardMarkup(keyboard)

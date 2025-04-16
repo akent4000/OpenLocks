@@ -1,6 +1,8 @@
 class CallbackData:
     TAG_SELECT = "tag_select"
     TAG_ID = "tag_id"
+    TAG_TOGGLE = "tag_toggle"
+    CLOSE_TAG_TOGGLES = "close_tag_toggles"
 
     TASK_ID = "task_id"
     TASK_CLOSE = "task_close"

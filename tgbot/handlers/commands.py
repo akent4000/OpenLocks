@@ -8,7 +8,7 @@ from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Configuration, Task
 from tgbot.logics.messages import send_welcome_message
 from tgbot.logics.constants import Commands, Urls
-
+from tgbot.logics.keyboards import tag_toggle_keyboard
 
 @bot.message_handler(commands=[Commands.START])
 def handle_start(message: Message):
@@ -75,7 +75,6 @@ def handle_today(message: Message):
     """
     Показывает, сколько заявок было отправлено с начала сегодняшнего дня.
     """
-    # Получаем начало сегодняшнего дня в локальном времени
     now = timezone.localtime()
     today_start = timezone.make_aware(
         datetime.datetime.combine(now.date(), datetime.time.min),
@@ -86,4 +85,26 @@ def handle_today(message: Message):
     bot.send_message(
         chat_id=message.chat.id,
         text=f"За {date_str} было отправлено {count} заявок"
+    )
+
+@bot.message_handler(commands=[Commands.TAGS])
+def handle_tags(message: Message):
+    """
+    Обработчик команды /tags — отправляет клавиатуру с доступными тегами.
+    Позволяет подписаться или отписаться от тегов.
+    """
+    user = TelegramUser.objects.filter(chat_id=message.chat.id).first()
+    if not user:
+        bot.send_message(message.chat.id, "Пользователь не найден. Введите /start сначала.")
+        return
+
+    keyboard = tag_toggle_keyboard(user)
+    if not keyboard:
+        bot.send_message(message.chat.id, "Теги пока не заданы.")
+        return
+
+    bot.send_message(
+        chat_id=message.chat.id,
+        text="Выберите теги, на которые хотите подписаться или отписаться:",
+        reply_markup=keyboard
     )
