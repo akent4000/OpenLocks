@@ -18,6 +18,8 @@ from django.utils.http import urlencode
 
 from rangefilter.filters import DateRangeFilter, NumericRangeFilter
 
+from solo.admin import SingletonModelAdmin
+
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 from tgbot.models import (
     Configuration,
@@ -63,7 +65,7 @@ class TelegramBotTokenAdmin(admin.ModelAdmin):
     bot_link.short_description = "Ссылка на бота"
 
 ##############################
-# Server Admin
+# Server Admin (Singleton)
 ##############################
 class ServerAdminForm(forms.ModelForm):
     PERMIT_ROOT_LOGIN_CHOICES = [
@@ -83,9 +85,9 @@ class ServerAdminForm(forms.ModelForm):
         fields = '__all__'
 
 @admin.register(Server)
-class ServerAdmin(admin.ModelAdmin):
+class ServerAdmin(SingletonModelAdmin):
     form = ServerAdminForm
-    list_display = ('id', 'ip',)
+    change_form_template = 'admin/server_change_form.html'
     actions = ['sync_ssh_keys']
     fieldsets = (
         (None, {'fields': ('ip',)}),
@@ -93,47 +95,33 @@ class ServerAdmin(admin.ModelAdmin):
         ('SSH аутентификация', {'fields': ('password_auth', 'pubkey_auth', 'permit_empty_passwords', 'permit_root_login')}),
     )
 
-    @admin.action(description="Синхронизировать SSH ключи выбранных серверов")
-    def sync_ssh_keys(self, request, queryset):
-        for server in queryset:
-            sync_keys(server=server)
-            self.message_user(request, f"SSH ключи синхронизированы для сервера {server.ip}.", level=messages.SUCCESS)
+    @admin.action(description="Синхронизировать SSH ключи")
+    def sync_ssh_keys(self, request, queryset=None):
+        server = Server.get_solo()
+        sync_keys(server=server)
+        self.message_user(request, f"SSH ключи синхронизированы для сервера {server.ip}.", level=messages.SUCCESS)
 
     def get_urls(self):
         urls = super().get_urls()
         custom_urls = [
             path(
-                '<int:object_id>/sync_ssh_keys/',
-                self.admin_site.admin_view(self.sync_ssh_keys_change),
-                name='nameserver_sync_ssh_keys'
+                'sync-ssh-keys/',
+                self.admin_site.admin_view(self.sync_ssh_keys),
+                name='server_sync_ssh_keys'
             ),
             path(
-                '<int:object_id>/reset_password/',
-                self.admin_site.admin_view(self.reset_password_change),
-                name='nameserver_reset_password'
+                'reset-password/',
+                self.admin_site.admin_view(self.reset_password),
+                name='server_reset_password'
             ),
         ]
         return custom_urls + urls
-    
-    def sync_ssh_keys_change(self, request, object_id):
-        server = self.get_queryset(request).filter(pk=object_id).first()
-        if server:
-            sync_keys(server=server)
-            self.message_user(request, f"SSH ключи синхронизированы для сервера {server.ip}.", level=messages.SUCCESS)
-        else:
-            self.message_user(request, "Сервер не найден.", level=messages.ERROR)
-        return HttpResponseRedirect(reverse("admin:tgbot_nameserver_change", args=[object_id]))
-    
-    def reset_password_change(self, request, object_id):
-        server = self.get_queryset(request).filter(pk=object_id).first()
-        if not server:
-            self.message_user(request, "Сервер не найден.", level=messages.ERROR)
-            return HttpResponseRedirect(reverse("admin:tgbot_nameserver_change", args=[object_id]))
-        
+
+    def reset_password(self, request):
+        server = Server.get_solo()
         alphabet = string.ascii_letters + string.digits
         new_password = ''.join(secrets.choice(alphabet) for _ in range(12))
         new_password_for_user = (server.user, new_password)
-        
         manager = SSHAccessManager()
         manager.set_auth_methods(
             server.password_auth,
@@ -142,15 +130,8 @@ class ServerAdmin(admin.ModelAdmin):
             server.permit_empty_passwords,
             new_password_for_user
         )
-        
         self.message_user(request, f"Пароль для пользователя {server.user} сброшен. Новый пароль: {new_password}", level=messages.SUCCESS)
-        return HttpResponseRedirect(reverse("admin:tgbot_nameserver_change", args=[object_id]))
-    
-    def change_view(self, request, object_id, form_url='', extra_context=None):
-        extra_context = extra_context or {}
-        extra_context['sync_ssh_keys_url'] = reverse("admin:nameserver_sync_ssh_keys", args=[object_id])
-        extra_context['reset_password_url'] = reverse("admin:nameserver_reset_password", args=[object_id])
-        return super().change_view(request, object_id, form_url, extra_context)
+        return HttpResponseRedirect(request.path)
 
 ##############################
 # SSHKey Admin
@@ -167,7 +148,7 @@ class SSHKeyAdmin(admin.ModelAdmin):
             path(
                 'sync-keys/',
                 self.admin_site.admin_view(self.sync_keys),
-                name="%s_%s_sync_keys" % (self.model._meta.app_label, self.model._meta.model_name)
+                name="sshkey_sync_keys"
             ),
             path(
                 'delete-key/<int:pk>/',
@@ -182,100 +163,20 @@ class SSHKeyAdmin(admin.ModelAdmin):
         self.message_user(request, "SSH ключи успешно синхронизированы.", messages.SUCCESS)
         return redirect("..")
 
-    def changelist_view(self, request, extra_context=None):
+    def changeform_view(self, request, object_id=None, form_url='', extra_context=None):
         extra_context = extra_context or {}
-        sync_url = reverse("admin:%s_%s_sync_keys" % (self.model._meta.app_label, self.model._meta.model_name))
-        extra_context["sync_keys_url"] = sync_url
-        return super().changelist_view(request, extra_context=extra_context)
-
-    def delete_key(self, request, pk):
-        obj = self.get_object(request, pk)
-        if obj:
-            obj.delete()
-            self.message_user(request, "SSH ключ удалён.", level=messages.SUCCESS)
-        else:
-            self.message_user(request, "SSH ключ не найден.", level=messages.ERROR)
-        return redirect("..")
-
-    def save_model(self, request, obj, form, change):
-        if not change:
-            manager = SSHAccessManager()
-            comment = obj.key_name
-            passphrase = form.cleaned_data.get("passphrase", "")
-            key_type = form.cleaned_data.get("key_type", "rsa")
-            bits = form.cleaned_data.get("bits") or 2048
-
-            result = manager.generate_ssh_key(comment=comment, passphrase=passphrase, key_type=key_type, bits=bits)
-            if result is None:
-                messages.error(request, "Ошибка генерации SSH ключа.")
-                return
-            obj.public_key = result["public_key"]
-            super().save_model(request, obj, form, change)
-            obj._private_key = result["private_key"]
-        else:
-            super().save_model(request, obj, form, change)
-
-    def response_add(self, request, obj, post_url_continue=None):
-        if hasattr(obj, "_private_key"):
-            pem_filename = f"{obj.key_name}_private_key.pem"
-            zip_filename = f"{obj.key_name}_private_key.zip"
-            zip_buffer = io.BytesIO()
-            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
-                zip_info = zipfile.ZipInfo(pem_filename)
-                zip_info.external_attr = (0o600 << 16)
-                zip_file.writestr(zip_info, obj._private_key)
-            zip_buffer.seek(0)
-            zip_content = zip_buffer.getvalue()
-            zip_content_b64 = base64.b64encode(zip_content).decode('utf-8')
-            
-            changelist_url = reverse("admin:%s_%s_changelist" % (obj._meta.app_label, obj._meta.model_name))
-            
-            html = f"""
-            <html>
-            <head>
-                <script>
-                function downloadAndRedirect() {{
-                    var a = document.createElement('a');
-                    a.href = "data:application/zip;base64,{zip_content_b64}";
-                    a.download = "{zip_filename}";
-                    document.body.appendChild(a);
-                    a.click();
-                    setTimeout(function() {{
-                        window.location.href = "{changelist_url}";
-                    }}, 1000);
-                }}
-                window.onload = downloadAndRedirect;
-                </script>
-            </head>
-            <body>
-                <p>SSH ключ успешно создан. Если скачивание не началось автоматически, <a href="#" onclick="downloadAndRedirect(); return false;">нажмите здесь</a>.</p>
-            </body>
-            </html>
-            """
-            del obj._private_key
-            return HttpResponse(html)
-        return super().response_add(request, obj, post_url_continue)
-
-    def get_readonly_fields(self, request, obj=None):
-        if obj:
-            return ("key_name", "public_key", "created_at")
-        return self.readonly_fields
-
-    def get_form(self, request, obj=None, **kwargs):
-        if obj:
-            kwargs["form"] = SSHKeyChangeForm
-        else:
-            kwargs["form"] = SSHKeyAdminForm
-        return super().get_form(request, obj, **kwargs)
+        if object_id:
+            extra_context['download_url'] = reverse("admin:sshkey_delete_key", args=[object_id])
+        return super().changeform_view(request, object_id, form_url, extra_context)
 
 ##############################
-# Configuration Admin
+# Configuration Admin (Singleton)
 ##############################
 @admin.register(Configuration)
-class ConfigurationAdmin(admin.ModelAdmin):
-    list_display = ('id', 'test_mode', 'auto_request_permission')
-    list_editable = ('test_mode', 'auto_request_permission',)
-    search_fields = ('id',)
+class ConfigurationAdmin(SingletonModelAdmin):
+    fieldsets = (
+        (None, {'fields': ('test_mode', 'auto_request_permission')}),
+    )
 
 ##############################
 # TelegramUser Admin
@@ -288,7 +189,7 @@ class TelegramUserAdmin(admin.ModelAdmin):
     )
     search_fields = ('chat_id', 'first_name', 'last_name', 'username')
     list_filter = ('can_publish_tasks', 'created_at', 'subscribed_tags')
-    
+
     def get_subscribed_tags(self, obj):
         return ", ".join(tag.name for tag in obj.subscribed_tags.all())
     get_subscribed_tags.short_description = "Подписка на теги"
@@ -310,7 +211,7 @@ class PaymentTypeModelAdmin(admin.ModelAdmin):
     search_fields = ('name',)
 
 ##############################
-# Files Inline для Task
+# Files Inline for Task
 ##############################
 class FilesInline(admin.TabularInline):
     model = Files
@@ -322,9 +223,8 @@ class FilesInline(admin.TabularInline):
         return ", ".join(f"{sm.message_id} ({sm.telegram_user})" for sm in obj.sent_messages.all())
     get_sent_messages.short_description = "Отправленные сообщения"
 
-
 ##############################
-# Response Inline для Task
+# Response Inline for Task
 ##############################
 class ResponseInline(admin.TabularInline):
     model = Response

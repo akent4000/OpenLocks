@@ -22,7 +22,7 @@ def handle_start(message: Message):
                 'first_name': message.chat.first_name,
                 'last_name': message.chat.last_name,
                 'username': message.chat.username,
-                'can_publish_tasks': Configuration.get_auto_request_permission(),
+                'can_publish_tasks': Configuration.get_solo().auto_request_permission,
             }
         )
         if not created and user.username != message.chat.username:

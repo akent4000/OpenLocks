@@ -363,9 +363,9 @@ class SSHAccessManager:
             logger.error(f"Ошибка при генерации SSH ключа: {e}")
             return None
         
-def sync_keys(server):
+def sync_keys():
     from tgbot.models import SSHKey, Server
-    server = Server.get_server
+    server = Server.get_solo()
     desired_keys = set(SSHKey.objects.values_list('public_key', flat=True))
     manager = SSHAccessManager()
     

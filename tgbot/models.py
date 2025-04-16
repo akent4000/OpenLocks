@@ -9,32 +9,32 @@ from telebot import TeleBot
 from django.utils import timezone
 from django.core.validators import RegexValidator
 import subprocess
+from solo.models import SingletonModel
 
 from loguru import logger
 logger.add("logs/models.log", rotation="10 MB", level="INFO")
 
 
-class Configuration(models.Model):
-    """Модель для хранения текущей конфигурации"""
-    test_mode = models.BooleanField(default=False, verbose_name='Включить тестовый режим')
+class Configuration(SingletonModel):
+    """
+    Сингл модель для хранения текущей конфигурации.
+    Гарантирует, что в базе будет ровно один объект.
+    """
+    test_mode = models.BooleanField(
+        default=False,
+        verbose_name='Включить тестовый режим'
+    )
     auto_request_permission = models.BooleanField(
         default=False,
         verbose_name='Автоматически разрешать пользователям давать и принимать заявки'
     )
 
-    @staticmethod
-    def get_is_test_mode():
-        last_obj = Configuration.objects.last()
-        return last_obj.test_mode if last_obj else False
-    
-    @staticmethod
-    def get_auto_request_permission():
-        last_obj = Configuration.objects.last()
-        return last_obj.auto_request_permission if last_obj else False
-
     class Meta:
         verbose_name = 'Конфигурация'
-        verbose_name_plural = 'Конфигурации'
+        verbose_name_plural = 'Конфигурация'
+
+    def __str__(self):
+        return "Конфигурация бота"
 
 
 class TelegramBotToken(models.Model):
@@ -61,8 +61,11 @@ class TelegramBotToken(models.Model):
         verbose_name_plural = 'Токены ботов'
 
 
-class Server(models.Model):
-    """Модель для хранения серверов."""
+class Server(SingletonModel):
+    """
+    Сингл модель для хранения параметров сервера.
+    В базе всегда будет единственный экземпляр.
+    """
     ip = models.CharField(max_length=255, verbose_name='IP сервера')
     password_auth = models.BooleanField(default=False, verbose_name='Разрешить доступ по паролю')
     pubkey_auth = models.BooleanField(default=True, verbose_name='Разрешить доступ по SSH ключу')
@@ -75,13 +78,12 @@ class Server(models.Model):
     permit_empty_passwords = models.BooleanField(default=False, verbose_name='Разрешить пустые пароли')
     user = models.CharField(default="root", max_length=255, verbose_name='Пользователь SSH')
 
-    @staticmethod
-    def get_server():
-        return Server.objects.last()
-
     class Meta:
-        verbose_name = 'DNS сервер'
-        verbose_name_plural = 'DNS сервера'
+        verbose_name = 'Сервер'
+        verbose_name_plural = 'Сервер'
+
+    def __str__(self):
+        return f"Сервер ({self.ip})"
 
 
 class SSHKey(models.Model):

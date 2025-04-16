@@ -9,7 +9,7 @@ main_bot_token = TelegramBotToken.get_main_bot_token()
 test_bot_token = TelegramBotToken.get_test_bot_token()
 
 # Подмена токенов в тестовом режиме
-if Configuration.get_is_test_mode():
+if Configuration.get_solo().test_mode:
     if test_bot_token:
         main_bot_token, test_bot_token = test_bot_token, main_bot_token
         logger.info("Running in test mode — tokens swapped.")

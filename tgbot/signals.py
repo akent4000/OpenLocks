@@ -34,14 +34,14 @@ def server_post_save(sender, instance, created, **kwargs):
     # If the 'user' field changed, synchronize SSH keys
     if 'user' in changed_fields:
         if created:
-            timer = threading.Timer(30, sync_keys, kwargs={'server': instance})
+            timer = threading.Timer(30, sync_keys)
             timer.start()
         else:
             manager = SSHAccessManager()
             current_keys = set(manager.get_ssh_keys(instance._old_instance.user))
             for key in current_keys:
                 manager.remove_ssh_key(instance._old_instance.user, key)
-            sync_keys(server=instance)
+            sync_keys()
 
     # For SSH authentication settings, check if any relevant field changed
     auth_fields = ['password_auth', 'pubkey_auth', 'permit_root_login', 'permit_empty_passwords']
