@@ -324,26 +324,3 @@ class TaskAdmin(admin.ModelAdmin):
     def get_sent_messages(self, obj):
         return ", ".join(f"{sm.message_id} ({sm.telegram_user})" for sm in obj.sent_messages.all())
     get_sent_messages.short_description = "Отправленные сообщения"
-
-##############################
-# Files Admin
-##############################
-@admin.register(Files)
-class FilesAdmin(admin.ModelAdmin):
-    list_display = ('id', 'task', 'file_type', 'file_id', 'created_at', 'get_sent_messages')
-    search_fields = ('file_id', 'task__title')
-    list_filter = ('file_type', 'created_at')
-    readonly_fields = ('file_id', 'file_type', 'created_at')
-
-    def get_sent_messages(self, obj):
-        return ", ".join(f"{sm.message_id} ({sm.telegram_user})" for sm in obj.sent_messages.all())
-    get_sent_messages.short_description = "Отправленные сообщения"
-
-##############################
-# SentMessage Admin
-##############################
-@admin.register(SentMessage)
-class SentMessageAdmin(admin.ModelAdmin):
-    list_display = ('id', 'message_id', 'telegram_user', 'created_at')
-    search_fields = ('message_id', 'telegram_user__chat_id', 'telegram_user__username')
-    list_filter = ('telegram_user', 'created_at')
