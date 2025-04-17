@@ -1,6 +1,5 @@
 from tgbot.models import TelegramUser
 from tgbot.dispatcher import bot
-from telebot.types import CallbackQuery, InlineKeyboardMarkup, InlineKeyboardButton
 
 def send_messege_to_admins(msg, markup=None, admins=None):
     admins = admins if admins is not None else TelegramUser.objects.filter(send_admin_notifications=True)

@@ -120,6 +120,7 @@ class TelegramUser(models.Model):
         related_name='subscribers', 
         verbose_name='Подписка на теги'
     )
+    send_admin_notifications = models.BooleanField(default=False, verbose_name='Получать оповещения администратора')
 
     def __str__(self):
         return f"{self.first_name} {self.last_name or ''} (@{self.username})"

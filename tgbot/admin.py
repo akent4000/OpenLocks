@@ -264,10 +264,11 @@ class ConfigurationAdmin(SingletonModelAdmin):
 class TelegramUserAdmin(admin.ModelAdmin):
     list_display = (
         'chat_id', 'first_name', 'last_name', 'username',
-        'can_publish_tasks', 'created_at', 'get_subscribed_tags'
+        'can_publish_tasks', 'created_at', 'get_subscribed_tags',
+        'send_admin_notifications'
     )
     search_fields = ('chat_id', 'first_name', 'last_name', 'username')
-    list_filter = ('can_publish_tasks', 'created_at', 'subscribed_tags')
+    list_filter = ('can_publish_tasks', 'created_at', 'subscribed_tags', 'send_admin_notifications')
     actions = ['allow_publish_tasks', 'disallow_publish_tasks']
 
     def get_subscribed_tags(self, obj):
