@@ -13,7 +13,8 @@ def send_mention_notification(
     actor: TelegramUser,
     text_template: str,
     reply_to_message_id: Optional[int] = None,
-    callback: Optional[CallbackQuery] = None
+    callback: Optional[CallbackQuery] = None,
+    reply_markup: Optional[InlineKeyboardMarkup] = None,
 ):
     """
     Универсальная отправка сообщения с упоминанием actor:
@@ -54,7 +55,8 @@ def send_mention_notification(
         text=text,
         parse_mode=None if entities else "Markdown",
         entities=entities,
-        reply_to_message_id=reply_to_message_id
+        reply_to_message_id=reply_to_message_id,
+        reply_markup=reply_markup
     )
 
     # 5) Если пытались text_mention и он НЕ сработал — делаем fallback
