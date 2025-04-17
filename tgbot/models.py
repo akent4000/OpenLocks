@@ -228,13 +228,13 @@ class Task(models.Model):
     
     @property
     def task_text(self):
-        tag_text = f"\n*Тэг:* {self.tag.name}" if self.tag else ""
-        return f"*Заявка №{self.id}:*{tag_text}\n*Описание:* {self.description}\n"
+        tag_text = f"\nТэг: *{self.tag.name}*" if self.tag else ""
+        return f"*Заявка №{self.id}:\n\n{tag_text}\nОписание:* {self.description}\n"
     
     @property
     def task_text_with_mention(self):
-        tag_text = f"\nТэг: *{self.tag.name}*" if self.tag else ""
-        return f"*Заявка №{self.id}:\n\nДиспетчер: {{mention}}\n{tag_text}\nОписание:* {self.description}\n"
+        tag_text = f"Тэг: *{self.tag.name}*" if self.tag else ""
+        return f"*Заявка №{self.id}:\n\nДиспетчер: *{{mention}}*\n{tag_text}\nОписание:* {self.description}\n"
     
 
     class Meta:
