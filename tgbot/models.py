@@ -231,6 +231,12 @@ class Task(models.Model):
         tag_text = f"\n*Тэг:* {self.tag.name}" if self.tag else ""
         return f"*Заявка №{self.id}:*{tag_text}\n*Описание:* {self.description}\n"
     
+    @property
+    def task_text_with_mention(self):
+        tag_text = f"\n*Тэг:* {self.tag.name}" if self.tag else ""
+        return f"*Заявка №{self.id}:*Диспетчер:*{{mention}}\n*{tag_text}\n*Описание:* {self.description}\n"
+    
+
     class Meta:
         verbose_name = 'Задание'
         verbose_name_plural = 'Задания'

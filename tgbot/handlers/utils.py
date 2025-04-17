@@ -276,7 +276,7 @@ def handle_task_repeat(call: CallbackQuery):
     send_task_message(
         recipient=user, 
         task=task,
-        text=f"*Заявка повторно выложена*:\n{task.task_text}",
+        text=f"*Заявка выложена повторно*:\n{task.task_text}",
         reply_to_message_id=task.creator_message_id_to_reply,
         reply_markup=dispather_task_keyboard(task=task),
     )
@@ -286,7 +286,7 @@ def handle_task_repeat(call: CallbackQuery):
         reply_markup=payment_types_keyboard(task)
     )
 
-    bot.answer_callback_query(call.id, "Заявка повторно выложена.")
+    bot.answer_callback_query(call.id, "Заявка выложена повторно.")
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.PAYMENT_SELECT}?"))
 def handle_payment_select(call: CallbackQuery):

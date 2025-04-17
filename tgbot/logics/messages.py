@@ -274,10 +274,7 @@ def broadcast_task_to_subscribers(
             # 1) файлы
             first_msg_id = send_task_files(sub, task)
 
-            template = (
-                "Диспетчер {mention}:\n\n"
-                f"{task.task_text}"
-            ).format(mention="{mention}",)
+            template =task.task_text_with_mention.format(mention="{mention}",)
 
             text_msg = send_mention_notification(
                 recipient_chat_id=sub.chat_id,
