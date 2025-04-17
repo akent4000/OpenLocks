@@ -372,6 +372,7 @@ def handle_payment_select(call: CallbackQuery):
                      "Добавьте бота в исключения приватности: *Настройки Telegram → Конфиденциальность → Пересылка сообщений*.",
                 parse_mode="Markdown"
             )
+            return
         except Exception as e:
             logger.warning(f"Не удалось отправить предупреждение мастеру: {e}")
 
