@@ -215,7 +215,7 @@ def handle_task_close(call: CallbackQuery):
     task.stage = Task.Stage.CLOSED
     task.save()
 
-    closed_text = f"*Заявка закрыта*\n\n{task.task_text}"
+    closed_text = f"*Заявка закрыта*\n{task.task_text}"
 
     # Обновляем сообщения диспетчера
     for sent in task.sent_messages.filter(telegram_user=task.creator):
