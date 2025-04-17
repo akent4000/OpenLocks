@@ -6,22 +6,22 @@ from telebot.types import CallbackQuery, MessageEntity
 from tgbot.dispatcher import bot
 from tgbot.models import *
 from tgbot.logics.constants import *
-from tgbot.logics.constants import CallbackData
 from tgbot.logics.messages import *
-from tgbot.logics.messages import edit_task_message
 from tgbot.logics.keyboards import *
-from tgbot.logics.keyboards import master_response_cancel_keyboard
-
-
 
 from loguru import logger
 logger.add("logs/utils.log", rotation="10 MB", level="INFO")
 
-def escape_md_v2(text: str) -> str:
+def ensure_publish_permission(user: TelegramUser, call: CallbackQuery) -> bool:
     """
-    Экранирует спецсимволы для Markdown.
+    Проверяет, имеет ли user право публиковать или редактировать заявки.
+    Если нет — отвечает на callback и возвращает False.
+    Иначе — возвращает True.
     """
-    return re.sub(r'([_*[\]()~`>#+\-=|{}.!])', r'\\\1', text)
+    if not user.can_publish_tasks:
+        bot.answer_callback_query(call.id, Messages.USER_CANT_DO_IT)
+        return False
+    return True
 
 def get_user_from_call(call: CallbackQuery) -> TelegramUser | None:
     """Извлекает пользователя по chat_id из сообщения callback."""
@@ -125,9 +125,8 @@ def handle_tag_selection(call: CallbackQuery):
       - устанавливается stage в Task.Stage.CREATED.
     """
     user = get_user_from_call(call)
-    if not user:
+    if not user or not ensure_publish_permission(user, call):
         return
-
     params = extract_query_params(call)
     tag_id = extract_int_param(call, params, CallbackData.TAG_ID, "Ошибка: отсутствует tag_id.")
     task_id = extract_int_param(call, params, CallbackData.TASK_ID, "Ошибка: отсутствует task_id.")
@@ -257,7 +256,7 @@ def handle_task_repeat(call: CallbackQuery):
       - повторно рассылает задачу мастерам.
     """
     user = get_user_from_call(call)
-    if not user:
+    if not user or not ensure_publish_permission(user, call):
         return
 
     params = extract_query_params(call)
@@ -298,7 +297,7 @@ def handle_payment_select(call: CallbackQuery):
     Приоритет: @username, если нет — text_mention, если не сработал — уведомление.
     """
     master = get_user_from_call(call)
-    if not master:
+    if not master or not ensure_publish_permission(master, call):
         return
 
     params = extract_query_params(call)

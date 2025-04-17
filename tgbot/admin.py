@@ -97,7 +97,7 @@ class ServerAdmin(SingletonModelAdmin):
     @admin.action(description="Синхронизировать SSH ключи")
     def sync_ssh_keys(self, request, queryset=None):
         server = Server.get_solo()
-        sync_keys(server=server)
+        sync_keys()
         self.message_user(request, f"SSH ключи синхронизированы для сервера {server.ip}.", level=messages.SUCCESS)
 
     def get_urls(self):

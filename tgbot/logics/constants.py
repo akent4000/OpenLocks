@@ -33,12 +33,18 @@ class Urls:
     GENERAL_CHAT = "https://t.me/+J8BI5oX0iN4xOGRi"
     SUPPORT = "https://t.me/OpenLocks_Support"
 
-class Messages:
-    WELCOME_MESSAGE = f"""Для добавления напишите [Админу]({Urls.SUPPORT})
-После добавления введите /start
-"""
-    CHAT_ACTIVE_MESSAGE = "Чат активен, вы можете принимать и отправлять заявки, приятного пользования"
-
 class Constants:
     MIN_TEXT_LENGTH = 13
+
+class Messages:
+    WELCOME_MESSAGE = f"Для добавления напишите [Администратору]({Urls.SUPPORT})\nПосле добавления введите /start"
+    CHAT_ACTIVE_MESSAGE = "Чат активен, вы можете принимать и отправлять заявки, приятного пользования"
     
+    USER_CANT_PUBLISH_TASKS = f"❗️ У вас пока нет доступа к публикации, редактированию или отклику на заявки.\nЧтобы получить права, обратитесь к [Администратору]({Urls.SUPPORT})"
+    USER_IS_NO_REGISTERED = "❗️ Вы не зарегистрированы в системе. Пожалуйста, отправьте команду /start для начала работы."
+    TASK_TEXT_IS_TOO_SHORT = f"❗️ Заявка не создана: текст слишком короткий (минимум {Constants.MIN_TEXT_LENGTH} символов)."
+    TASK_TEXT_IS_NOT_DEFINIDED = "❗️ Заявка не создана: нет текста для описания."
+    USER_CANT_DO_IT = "❌ У вас нет права выполнять это действие.\nОбратитесь к Администратору"
+
+
+    CHOOSE_TASK_TAG = "*Выберите тэг для вашей заявки*"
