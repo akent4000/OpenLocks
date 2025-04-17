@@ -279,13 +279,21 @@ def broadcast_task_to_subscribers(
                 f"{task.task_text}"
             ).format(mention="{mention}",)
 
-            send_mention_notification(
+            text_msg = send_mention_notification(
                 recipient_chat_id=sub.chat_id,
                 actor=dispatcher,
                 text_template=template,
                 reply_to_message_id=first_msg_id,
                 reply_markup=reply_markup
             )
+
+            sent = SentMessage.objects.create(
+                message_id=text_msg.message_id,
+                telegram_user=sub
+            )
+
+            task.sent_messages.add(sent)
+            task.save()
 
             logger.info(f"Задача {task.id} отправлена мастеру {sub.chat_id}")
         except Exception as e:
