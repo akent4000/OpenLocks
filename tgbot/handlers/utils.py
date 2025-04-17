@@ -362,6 +362,10 @@ def handle_payment_select(call: CallbackQuery):
     # Проверяем, сработал ли text_mention
     if not call.from_user.username and not sent_message.entities:
         try:
+            bot.delete_message(
+                task.creator.chat_id,
+                message_id=sent_message.id
+            )
             bot.send_message(
                 chat_id=call.from_user.id,
                 text="В Telegram не удалось создать ссылку на ваше имя. "
