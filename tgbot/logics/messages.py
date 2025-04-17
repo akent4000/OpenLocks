@@ -6,7 +6,79 @@ from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Task, Files, SentMessage
 from tgbot.logics.constants import *
 from telebot import REPLY_MARKUP_TYPES
-from telebot.types import InputMediaPhoto, InputMediaVideo
+from telebot.types import InputMediaPhoto, InputMediaVideo, MessageEntity, CallbackQuery, InlineKeyboardMarkup
+
+def send_mention_notification(
+    recipient_chat_id: int,
+    actor: TelegramUser,
+    text_template: str,
+    reply_to_message_id: Optional[int] = None,
+    callback: Optional[CallbackQuery] = None
+):
+    """
+    Универсальная отправка сообщения с упоминанием actor:
+      - если actor.username есть username, ставит @username
+      - иначе вставляет text_mention
+    text_template — строка, содержащая "{mention}".
+    Если передан callback — после отправки проверяет, сработал ли text_mention,
+    и, в случае ошибки, удаляет сообщение и шлёт актору инструкцию.
+    """
+    # 1) Формируем mention
+    if actor.username:
+        mention = f"@{actor.username}"
+    else:
+        mention = f"{actor.first_name}{(' ' + actor.last_name) if actor.last_name else ''}".strip()
+
+    # 2) Подставляем в шаблон
+    text = text_template.format(mention=mention)
+
+    # 3) Готовим entities для text_mention, если нет username
+    entities = None
+    if not actor.username:
+        try:
+            offset = text.index(mention)
+            entities = [
+                MessageEntity(
+                    type="text_mention",
+                    offset=offset,
+                    length=len(mention),
+                    user=actor
+                )
+            ]
+        except ValueError:
+            pass  # не нашли — отправляем без entities
+
+    # 4) Отправляем
+    sent = bot.send_message(
+        chat_id=recipient_chat_id,
+        text=text,
+        parse_mode=None if entities else "Markdown",
+        entities=entities,
+        reply_to_message_id=reply_to_message_id
+    )
+
+    # 5) Если пытались text_mention и он НЕ сработал — делаем fallback
+    if callback and not actor.username and not sent.entities:
+        try:
+            # удаляем неудачное уведомление
+            bot.delete_message(chat_id=recipient_chat_id, message_id=sent.message_id)
+            # шлём актору подсказку
+            bot.send_message(
+                chat_id=actor.chat_id,
+                text=(
+                    "⚠️ Не удалось создать упоминание вашим именем. "
+                    "Пожалуйста, в Telegram включите пересылку сообщений от бота:\n"
+                    "Настройки → Конфиденциальность → Пересылка сообщений"
+                ),
+                parse_mode="Markdown"
+            )
+            # отвечаем на callback, чтобы в интерфейсе ткнуть «OK»
+            bot.answer_callback_query(callback.id, "Не удалось упомянуть вас по имени.")
+        except Exception as e:
+            logger.warning(f"Не смогли отправить fallback-мастеру: {e}")
+
+    return sent
+
 
 def send_welcome_message(created: bool, user: TelegramUser) -> None:
     """
@@ -186,31 +258,34 @@ def edit_task_message(
 
 def broadcast_task_to_subscribers(
     task: Task,
-    text: str,
-    reply_markup: Optional[REPLY_MARKUP_TYPES] = None
+    reply_markup: Optional[InlineKeyboardMarkup] = None
 ) -> None:
-    """
-    Отправляет сообщение с заданием всем пользователям (мастерам), подписанным на тэг задачи,
-    кроме создателя задания.
-    
-    Учитываются ограничения Telegram:
-      - Отправление сообщений разным пользователям: до 30 сообщений с интервалом от 1 секунды.
-      - Ограничения по размеру файлов и количеству кнопок (до 100 штук).
-    
-    Для отправки файлов используется универсальная функция send_task_files.
-    """
     if not task.tag:
-        logger.error(f"Задача {task.id} не имеет тега, рассылка не выполнена.")
+        logger.error(f"Задача {task.id} не имеет тега — рассылка отменена.")
         return
 
-    # Исключаем создателя задания (сравнение по chat_id)
-    subscribers = task.tag.subscribers.exclude(chat_id=task.creator.chat_id)
-    for subscriber in subscribers:
+    dispatcher = task.creator
+    subscribers = task.tag.subscribers.exclude(chat_id=dispatcher.chat_id)
+
+    for sub in subscribers:
         try:
-            send_task_message(subscriber, task, text, reply_markup)
-            logger.info(f"Сообщение по задаче {task.id} отправлено пользователю {subscriber.chat_id}")
+            # 1) файлы
+            first_msg_id = send_task_files(sub, task)
+
+            template = (
+                "Диспетчер {mention}:\n\n"
+                f"{task.task_text}"
+            ).format(mention="{mention}",)
+
+            send_mention_notification(
+                recipient_chat_id=sub.chat_id,
+                actor=dispatcher,
+                text_template=template,
+                reply_to_message_id=first_msg_id,
+                reply_markup=reply_markup
+            )
+
+            logger.info(f"Задача {task.id} отправлена мастеру {sub.chat_id}")
         except Exception as e:
-            logger.error(f"Ошибка при рассылке сообщения по задаче {task.id} пользователю {subscriber.chat_id}: {e}")
-        # Соблюдаем лимит Telegram для отправки сообщений разным пользователям:
-        # не более 30 сообщений с интервалом от 1 секунды.
-        time.sleep(1)
+            logger.error(f"Не удалось отправить задачу {task.id} мастеру {sub.chat_id}: {e}")
+        time.sleep(0.04)

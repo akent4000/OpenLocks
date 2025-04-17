@@ -155,7 +155,6 @@ def handle_tag_selection(call: CallbackQuery):
 
     broadcast_task_to_subscribers(
         task=task,
-        text=task.task_text,
         reply_markup=payment_types_keyboard(task=task)
     )
 
@@ -284,7 +283,6 @@ def handle_task_repeat(call: CallbackQuery):
 
     broadcast_task_to_subscribers(
         task=task,
-        text=task.task_text,
         reply_markup=payment_types_keyboard(task)
     )
 
@@ -294,18 +292,21 @@ def handle_task_repeat(call: CallbackQuery):
 def handle_payment_select(call: CallbackQuery):
     """
     Обработчик кнопок выбора типа оплаты, с упоминанием мастера.
-    Приоритет: @username, если нет — text_mention, если не сработал — уведомление.
+    Приоритет: @username, если нет — text_mention, с фоллбеком на приватность.
     """
+    # 1. Получаем мастера и проверяем права
     master = get_user_from_call(call)
     if not master or not ensure_publish_permission(master, call):
         return
 
+    # 2. Извлекаем payment_id и task_id
     params = extract_query_params(call)
     payment_id = extract_int_param(call, params, CallbackData.PAYMENT_ID, "Ошибка: отсутствует payment_id.")
-    task_id = extract_int_param(call, params, CallbackData.TASK_ID, "Ошибка: отсутствует task_id.")
+    task_id    = extract_int_param(call, params, CallbackData.TASK_ID,    "Ошибка: отсутствует task_id.")
     if payment_id is None or task_id is None:
         return
 
+    # 3. Загружаем объекты PaymentType и Task
     try:
         payment_type = PaymentTypeModel.objects.get(id=payment_id)
     except PaymentTypeModel.DoesNotExist:
@@ -318,78 +319,49 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
         return
 
-    task_number = f"{task.id}"
-    reply_to = task.sent_messages.filter(telegram_user=task.creator).last().message_id if task.sent_messages.filter(telegram_user=task.creator).exists() else None
+    # 4. Определяем reply_to_message_id для ответного уведомления
+    last_disp = (
+        task.sent_messages
+            .filter(telegram_user=task.creator)
+            .order_by("created_at")
+            .last()
+    )
+    reply_to = last_disp.message_id if last_disp else None
 
-    entities = []
-    if call.from_user.username:
-        mention = f"@{call.from_user.username}"
-        notification_text = f"Мастер {mention} хочет забрать заявку {task_number} {payment_type.name}"
-    else:
-        raw_name = (call.from_user.first_name or "") + (f" {call.from_user.last_name}" if call.from_user.last_name else "")
-        raw_name = raw_name.strip()
+    # 5. Формируем шаблон текста с placeholder {mention}
+    text_template = (
+        f"Мастер {{mention}} хочет забрать заявку "
+        f"{str(task.id).zfill(4)} {payment_type.name}"
+    )
 
-        if not raw_name:
-            raw_name = str(call.from_user.id)
-
-        notification_text = f"Мастер {raw_name} хочет забрать заявку {task_number} {payment_type.name}"
-        try:
-            offset = notification_text.index(raw_name)
-            entities.append(MessageEntity(
-                type="text_mention",
-                offset=offset,
-                length=len(raw_name),
-                user=call.from_user
-            ))
-            used_text_mention = True
-        except ValueError:
-            logger.warning("Не удалось найти имя в тексте для text_mention")
-
-
-    # Отправка сообщения
+    # 6. Отправляем уведомление через общую функцию
     try:
-        sent_message = bot.send_message(
-            chat_id=task.creator.chat_id,
-            text=notification_text,
-            entities=entities if entities else None,
-            reply_to_message_id=reply_to
+        sent_msg = send_mention_notification(
+            recipient_chat_id=task.creator.chat_id,
+            actor=master,
+            text_template=text_template,
+            reply_to_message_id=reply_to,
+            callback=call
         )
     except Exception as e:
-        logger.error(f"Ошибка при отправке уведомления создателю заявки {task.creator.chat_id}: {e}")
+        logger.error(f"Ошибка при отправке уведомления создателю заявки: {e}")
         bot.answer_callback_query(call.id, "Ошибка при отправке уведомления.")
         return
 
-    # Проверяем, сработал ли text_mention
-    if not call.from_user.username and not sent_message.entities:
-        try:
-            bot.delete_message(
-                task.creator.chat_id,
-                message_id=sent_message.id
-            )
-            bot.send_message(
-                chat_id=call.from_user.id,
-                text="В Telegram не удалось создать ссылку на ваше имя. "
-                     "Добавьте бота в исключения приватности: *Настройки Telegram → Конфиденциальность → Пересылка сообщений*.",
-                parse_mode="Markdown"
-            )
-            bot.answer_callback_query(call.id, "Ошибка при отправке отклика")
-            return
-        except Exception as e:
-            logger.warning(f"Не удалось отправить предупреждение мастеру: {e}")
-
-    # Сохраняем отклик и отправленное сообщение
+    # 7. Сохраняем отклик и привязанное SentMessage
     response = Response.objects.create(
         task=task,
         telegram_user=master,
         payment_type=payment_type
     )
-    sent_rec = SentMessage.objects.create(
-        message_id=sent_message.message_id,
+    sent_record = SentMessage.objects.create(
+        message_id=sent_msg.message_id,
         telegram_user=task.creator
     )
-    response.sent_messages.add(sent_rec)
+    response.sent_messages.add(sent_record)
     response.save()
 
+    # 8. Обновляем сообщение мастера
     edit_task_message(
         recipient=master,
         task=task,
@@ -397,6 +369,7 @@ def handle_payment_select(call: CallbackQuery):
         new_reply_markup=master_response_cancel_keyboard(response=response)
     )
 
+    # 9. Подтверждаем кнопку
     bot.answer_callback_query(call.id, "Ваш отклик отправлен")
 
 
