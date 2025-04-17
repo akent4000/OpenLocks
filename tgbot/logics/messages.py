@@ -296,3 +296,114 @@ def broadcast_task_to_subscribers(
         except Exception as e:
             logger.error(f"Не удалось отправить задачу {task.id} мастеру {sub.chat_id}: {e}")
         time.sleep(0.04)
+
+def edit_mention_notification(
+    recipient_chat_id: int,
+    message_id: int,
+    actor: TelegramUser,
+    text_template: str,
+    reply_markup: Optional[InlineKeyboardMarkup] = None,
+):
+    """
+    Редактирует ранее отправленное уведомление с упоминанием actor.
+    
+    По тому же шаблону, что и send_mention_notification:
+      - если actor.username есть, ставит @username и отправляет в Markdown;
+      - иначе пытается вставить text_mention;
+      - если edit не сработал (например, пользователь запретил ссылки),
+        делает fallback: удаляет старое сообщение и шлёт новое через send_mention_notification.
+    
+    Аргументы:
+      • recipient_chat_id — chat_id, где нужно редактировать сообщение
+      • message_id          — ID сообщения для редактирования
+      • actor               — TelegramUser, чьё имя упоминаем
+      • text_template       — строка с "{mention}" внутри
+      • reply_markup        — (опционально) inline‑клавиатура
+    """
+    # 1) Формируем mention
+    if actor.username:
+        mention = f"@{actor.username}"
+        parse_mode = "Markdown"
+        entities = None
+    else:
+        mention = f"{actor.first_name}{(' ' + actor.last_name) if actor.last_name else ''}".strip()
+        parse_mode = None
+        # пытаемся собрать text_mention
+        try:
+            offset = text_template.format(mention=mention).index(mention)
+            entities = [
+                MessageEntity(
+                    type="text_mention",
+                    offset=offset,
+                    length=len(mention),
+                    user=actor
+                )
+            ]
+        except ValueError:
+            entities = None
+
+    # 2) Собираем финальный текст
+    text = text_template.format(mention=mention)
+
+    # 3) Пытаемся отредактировать
+    try:
+        bot.edit_message_text(
+            chat_id=recipient_chat_id,
+            message_id=message_id,
+            text=text,
+            parse_mode=parse_mode,
+            entities=entities,
+            reply_markup=reply_markup
+        )
+        return
+    except Exception as e:
+        logger.warning(f"Не удалось отредактировать mention‑сообщение {message_id}: {e}")
+
+    # 4) Если редактирование не удалось, удаляем и шлём заново
+    try:
+        bot.delete_message(chat_id=recipient_chat_id, message_id=message_id)
+    except Exception as e:
+        logger.warning(f"Не удалось удалить старое сообщение {message_id}: {e}")
+
+    # 5) Фолбэк на полную отправку
+    send_mention_notification(
+        recipient_chat_id=recipient_chat_id,
+        actor=actor,
+        text_template=text_template,
+        reply_to_message_id=None,
+        reply_markup=reply_markup
+    )
+
+def edit_mention_task_message(
+    recipient: TelegramUser,
+    task: Task,
+    new_text: str,
+    new_reply_markup: Optional[InlineKeyboardMarkup] = None,
+) -> None:
+    """
+    Редактирует последнее сообщение по заданию для получателя `recipient`,
+    вставляя в текст упоминание автора (диспетчера) задачи.
+
+    • `new_text` — строка‑шаблон с подстрокой "{mention}", которая будет заменена
+      либо на @username, либо на text_mention.
+    • `new_reply_markup` — (опционально) новая inline‑клавиатура.
+    """
+    # 1) Находим последнее сообщение, отправленное этому пользователю по этой задаче
+    sent: SentMessage = (
+        task.sent_messages
+            .filter(telegram_user=recipient)
+            .order_by("created_at")
+            .last()
+    )
+    if not sent:
+        logger.error(f"edit_mention_task_message: для задачи {task.id} нет сообщений у {recipient.chat_id}")
+        return
+
+    # 2) Вызываем общий редактор упоминаний
+    edit_mention_notification(
+        recipient_chat_id=recipient.chat_id,
+        message_id=sent.message_id,
+        actor=task.creator,
+        text_template=new_text,
+        reply_markup=new_reply_markup,
+    )

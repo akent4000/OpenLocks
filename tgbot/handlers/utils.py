@@ -361,7 +361,7 @@ def handle_payment_select(call: CallbackQuery):
     response.save()
 
     # 8. Обновляем сообщение мастера
-    edit_task_message(
+    edit_mention_task_message(
         recipient=master,
         task=task,
         new_text=f"*Ваш отклик отправлен*\n\n{task.task_text_with_mention}",
@@ -405,7 +405,7 @@ def handle_response_cancel(call: CallbackQuery):
             logger.error(f"Ошибка при удалении уведомления с ID {sent.message_id}: {e}")
 
     response_obj.delete()
-    edit_task_message(
+    edit_mention_task_message(
         recipient=master,
         task=task,
         new_text=f"*Ваш отклик удалён*\n\n{task.task_text_with_mention}",
