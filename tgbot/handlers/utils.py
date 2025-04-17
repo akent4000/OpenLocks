@@ -330,8 +330,7 @@ def handle_payment_select(call: CallbackQuery):
 
     # 5. Формируем шаблон текста с placeholder {mention}
     text_template = (
-        f"Мастер {{mention}} хочет забрать заявку "
-        f"{str(task.id).zfill(4)} {payment_type.name}"
+        f"Мастер {{mention}} хочет забрать заявку №{task.id} {payment_type.name}"
     )
 
     # 6. Отправляем уведомление через общую функцию
