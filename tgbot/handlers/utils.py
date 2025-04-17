@@ -76,18 +76,18 @@ def get_tag_by_id(call: CallbackQuery, tag_id: int) -> Tag | None:
 def delete_all_task_related(task: Task):
     """
     Удаляет все сообщения, связанные с заявкой:
-      - все SentMessage из task.sent_messages
-      - все SentMessage из Files.sent_messages
-      - все SentMessage из Response.sent_messages
+      - удаляет сами сообщения в Telegram,
+      - удаляет записи SentMessage из БД для:
+        * task.sent_messages
+        * всех f.sent_messages в task.files
+        * всех resp.sent_messages в task.responses
     """
-    # Сообщения по задаче (диспетчер и мастерам)
     for sent in task.sent_messages.all():
         try:
             bot.delete_message(chat_id=sent.telegram_user.chat_id, message_id=sent.message_id)
         except Exception as e:
             logger.error(f"Не удалось удалить сообщение {sent.message_id} у {sent.telegram_user}: {e}")
 
-    # Сообщения, отправленные для файлов
     for f in task.files.all():
         for sent in f.sent_messages.all():
             try:
@@ -95,13 +95,18 @@ def delete_all_task_related(task: Task):
             except Exception as e:
                 logger.error(f"Не удалось удалить сообщение файла {sent.message_id}: {e}")
 
-    # Сообщения, отправленные для откликов
     for resp in task.responses.all():
         for sent in resp.sent_messages.all():
             try:
                 bot.delete_message(chat_id=sent.telegram_user.chat_id, message_id=sent.message_id)
             except Exception as e:
                 logger.error(f"Не удалось удалить сообщение отклика {sent.message_id}: {e}")
+
+    task.sent_messages.all().delete()
+    for f in task.files.all():
+        f.sent_messages.all().delete()
+    for resp in task.responses.all():
+        resp.sent_messages.all().delete()
 
 def get_task_for_creator(call: CallbackQuery, task_id: int) -> Task | None:
     """Получает объект Task по task_id и chat_id создателя."""
