@@ -196,8 +196,8 @@ def handle_task_close(call: CallbackQuery):
     """
     Обработчик для кнопки "Закрыть":
       - меняет статус заявки,
-      - редактирует все сообщения диспетчера и мастеров,
-      - сохраняет изменения.
+      - редактирует сообщение диспетчера через edit_task_message,
+      - редактирует все сообщения мастеров через edit_mention_task_message.
     """
     user = get_user_from_call(call)
     if not user:
@@ -212,36 +212,33 @@ def handle_task_close(call: CallbackQuery):
     if not task:
         return
 
+    # 1) Ставим статус CLOSED
     task.stage = Task.Stage.CLOSED
     task.save()
 
-    closed_text = f"*Заявка закрыта*\n{task.task_text}"
+    # 2) Готовим тексты
+    # для диспетчера — без упоминаний
+    dispatcher_text = f"*Заявка закрыта*\n\n{task.task_text}"
+    # для мастеров — шаблон с {mention}
+    master_template = f"*Заявка закрыта*\n\n {task.task_text_with_mention}"
 
-    # Обновляем сообщения диспетчера
-    for sent in task.sent_messages.filter(telegram_user=task.creator):
-        try:
-            bot.edit_message_text(
-                chat_id=task.creator.chat_id,
-                message_id=sent.message_id,
-                text=closed_text,
-                parse_mode="Markdown",
-                reply_markup=repeat_task_dispather_task_keyboard(task)
-            )
-        except Exception as e:
-            logger.error(f"Не удалось отредактировать диспетчерское сообщение {sent.message_id}: {e}")
-
-    # Обновляем сообщения мастеров (отправленные через broadcast_task_to_subscribers)
-    for sent in task.sent_messages.exclude(telegram_user=task.creator):
-        try:
-            bot.edit_message_text(
-                chat_id=sent.telegram_user.chat_id,
-                message_id=sent.message_id,
-                text=closed_text,
-                parse_mode="Markdown",
-                reply_markup=None
-            )
-        except Exception as e:
-            logger.error(f"Не удалось отредактировать сообщение мастера {sent.message_id}: {e}")
+    edit_task_message(
+        recipient=task.creator,
+        task=task,
+        new_text=dispatcher_text,
+        new_reply_markup=repeat_task_dispather_task_keyboard(task)
+    )
+    masters = {
+        sent.telegram_user
+        for sent in task.sent_messages.exclude(telegram_user=task.creator)
+    }
+    for master in masters:
+        edit_mention_task_message(
+            recipient=master,
+            task=task,
+            new_text=master_template,
+            new_reply_markup=None
+        )
 
     bot.answer_callback_query(call.id, "Заявка закрыта.")
 
