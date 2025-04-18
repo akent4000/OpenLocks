@@ -4,10 +4,10 @@ import threading
 from loguru import logger
 from telebot.types import Message
 from tgbot.dispatcher import bot
-from tgbot.models import TelegramUser, Task, Tag, Files
+from tgbot.models import *
 from tgbot.logics.constants import *
-from tgbot.logics.keyboards import tags_keyboard
-from tgbot.logics.messages import send_welcome_message, send_task_message
+from tgbot.logics.keyboards import *
+from tgbot.logics.messages import *
 
 # Настройка логгера
 logger.add("logs/message_handler.log", rotation="10 MB", level="INFO")
@@ -29,50 +29,49 @@ def extract_files_from_message(message: Message) -> list:
 
 def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, files: list = None) -> None:
     """
-    Пытается создать новую задачу. Если что-то идёт не так — уведомляет пользователя.
+    Пытается создать новую задачу. Если что-то идёт не так — уведомляет пользователя и удаляет сообщение об ошибке через 5 секунд.
     """
+    def send_temporary_error(chat_id: int, message_text: str):
+        try:
+            sent = bot.send_message(chat_id, message_text, reply_to_message_id=reply_to_message_id, parse_mode="Markdown")
+            logger.info(f"process_task_submission: отправлена ошибка '{message_text}' пользователю {chat_id}")
+            time.sleep(5)
+            try:
+                bot.delete_message(chat_id, sent.message_id)
+                logger.info(f"process_task_submission: удалено сообщение об ошибке {sent.message_id} для {chat_id}")
+            except Exception as e:
+                logger.error(f"process_task_submission: ошибка при удалении сообщения об ошибке {sent.message_id}: {e}")
+        except Exception as e:
+            logger.error(f"process_task_submission: ошибка при отправке сообщения об ошибке пользователю {chat_id}: {e}")
+
     # 1) Проверка длины
     if len(text) < Constants.MIN_TEXT_LENGTH:
         logger.info(f"Заявка от {chat_id} слишком короткая: '{text}'")
-        bot.send_message(
-            chat_id,
-            text=Messages.TASK_TEXT_IS_TOO_SHORT,
-            reply_to_message_id=reply_to_message_id
-        )
+        send_temporary_error(chat_id, Messages.TASK_TEXT_IS_TOO_SHORT)
         return
 
     # 2) Найти/зарегистрировать пользователя
     user = TelegramUser.get_user_by_chat_id(chat_id=chat_id)
     if not user:
         logger.error(f"Пользователь {chat_id} не зарегистрирован")
-        bot.send_message(
-            chat_id,
-            text=Messages.USER_IS_NO_REGISTERED,
-            reply_to_message_id=reply_to_message_id
-        )
+        send_temporary_error(chat_id, Messages.USER_IS_NO_REGISTERED)
         return
 
     # 3) Проверка прав
     if not user.can_publish_tasks:
         logger.info(f"Пользователю {chat_id} запрещено публиковать задачи")
-        bot.send_message(
-            chat_id,
-            text=Messages.USER_CANT_PUBLISH_TASKS,
-            reply_to_message_id=reply_to_message_id,
-            parse_mode="Markdown"
-        )
+        send_temporary_error(chat_id, Messages.USER_CANT_PUBLISH_TASKS)
         return
 
     # Всё ок — создаём задачу
     logger.info(f"Создаём задачу от пользователя {chat_id}: '{text}'")
     task = Task.objects.create(
-        tag=None,
         title=text if len(text) <= 255 else text[:255],
         description=text,
         payment_type=None,
         creator=user,
         creator_message_id_to_reply=reply_to_message_id,
-        stage=Task.Stage.PENDING_TAG
+        stage=Task.Stage.CREATED
     )
     logger.info(f"Задача {task.id} сохранена")
 
@@ -85,14 +84,32 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
                 file_type=f["type"]
             )
 
+    #TAGS
     # Отправляем первое сообщение с выбором тега
+    # send_task_message(
+    #     recipient=user,
+    #     task=task,
+    #     text=f"{Messages.CHOOSE_TASK_TAG}\n\n{task.task_text}",
+    #     reply_markup=tags_keyboard(task),
+    #     reply_to_message_id=task.creator_message_id_to_reply,
+    # )
+
+    # Отправляем задачу диспетчеру
     send_task_message(
         recipient=user,
         task=task,
-        text=f"{Messages.CHOOSE_TASK_TAG}\n\n{task.task_text}",
-        reply_markup=tags_keyboard(task),
+        text=f"*Ваша заявка*:\n{task.task_text}",
+        reply_markup=dispather_task_keyboard(task=task),
         reply_to_message_id=task.creator_message_id_to_reply,
     )
+
+    # Рассылаем мастерам
+    #TAGS
+    broadcast_task_to_subscribers(
+        task=task,
+        reply_markup=payment_types_keyboard(task=task)
+    )
+    
 
 def process_pending_text(chat_id: int, message: Message, text: str):
     pending_text_messages.pop(chat_id, None)

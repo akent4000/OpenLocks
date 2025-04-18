@@ -64,25 +64,24 @@ def server_post_save(sender, instance, created, **kwargs):
             manager.set_auth_methods(
                 password_auth, pubkey_auth, permit_root_login, permit_empty_passwords, new_password_for_user)
             
+#TAGS
+# @receiver(post_save, sender=TelegramUser)
+# def subscribe_user_to_all_tags(sender, instance, created, **kwargs):
+#     if created:
+#         instance.subscribed_tags.set(Tag.objects.all())
+#
+# @receiver(post_save, sender=Tag)
+# def subscribe_all_users_to_new_tag(sender, instance, created, **kwargs):
+#     """
+#     При создании нового тега подписывает всех существующих пользователей на него.
+#     """
+#     if not created:
+#         return
 
-@receiver(post_save, sender=TelegramUser)
-def subscribe_user_to_all_tags(sender, instance, created, **kwargs):
-    if created:
-        instance.subscribed_tags.set(Tag.objects.all())
-
-
-@receiver(post_save, sender=Tag)
-def subscribe_all_users_to_new_tag(sender, instance, created, **kwargs):
-    """
-    При создании нового тега подписывает всех существующих пользователей на него.
-    """
-    if not created:
-        return
-
-    users = TelegramUser.objects.all()
-    for user in users:
-        user.subscribed_tags.add(instance)
-    logger.info(f"Подписано {users.count()} пользователей на новый тег «{instance.name}»")
+#     users = TelegramUser.objects.all()
+#     for user in users:
+#         user.subscribed_tags.add(instance)
+#     logger.info(f"Подписано {users.count()} пользователей на новый тег «{instance.name}»")
 
 @receiver(pre_delete, sender=Task)
 def cleanup_task_sent_messages(sender, instance, **kwargs):

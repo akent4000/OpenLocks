@@ -10,7 +10,8 @@ def init_bot_commands(bot):
         types.BotCommand(Commands.CHAT, "Общий чат"),
         types.BotCommand(Commands.ADMIN, "Контакт администратора"),
         types.BotCommand(Commands.TODAY, "Заявки за день"),
-        types.BotCommand(Commands.TAGS, "Настройка тегов на которые вы подписаны"),
+        #TAGS
+        #types.BotCommand(Commands.TAGS, "Настройка тегов на которые вы подписаны"),
     ]
 
     bot.set_my_commands(commands)

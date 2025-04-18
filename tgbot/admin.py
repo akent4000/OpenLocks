@@ -21,19 +21,7 @@ from rangefilter.filters import DateRangeFilter, NumericRangeFilter
 from solo.admin import SingletonModelAdmin
 
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
-from tgbot.models import (
-    Configuration,
-    SSHKey,
-    TelegramBotToken,
-    Server,
-    TelegramUser,
-    Tag,
-    PaymentTypeModel,
-    Task,
-    Files,
-    Response,
-    SentMessage,
-)
+from tgbot.models import *
 from tgbot.forms import SSHKeyAdminForm, SSHKeyChangeForm
 
 admin.site.site_header = "Администрирование Open Locks"
@@ -263,17 +251,26 @@ class ConfigurationAdmin(SingletonModelAdmin):
 @admin.register(TelegramUser)
 class TelegramUserAdmin(admin.ModelAdmin):
     list_display = (
-        'chat_id', 'first_name', 'last_name', 'username',
-        'can_publish_tasks', 'created_at', 'get_subscribed_tags',
+        'chat_id', 
+        'first_name', 
+        'last_name', 
+        'username',
+        'can_publish_tasks', 
+        'created_at', 
+        #'get_subscribed_tags',
         'send_admin_notifications'
     )
     search_fields = ('chat_id', 'first_name', 'last_name', 'username')
-    list_filter = ('can_publish_tasks', 'created_at', 'subscribed_tags', 'send_admin_notifications')
+    list_filter = ('can_publish_tasks', 
+                   'created_at', 
+                   #'subscribed_tags', 
+                   'send_admin_notifications')
     actions = ['allow_publish_tasks', 'disallow_publish_tasks']
 
-    def get_subscribed_tags(self, obj):
-        return ", ".join(tag.name for tag in obj.subscribed_tags.all())
-    get_subscribed_tags.short_description = "Подписка на теги"
+    #TAGS
+    # def get_subscribed_tags(self, obj):
+    #     return ", ".join(tag.name for tag in obj.subscribed_tags.all())
+    # get_subscribed_tags.short_description = "Подписка на теги"
 
     @admin.action(description="Разрешить доступ к публикации заданий")
     def allow_publish_tasks(self, request, queryset):
@@ -293,13 +290,14 @@ class TelegramUserAdmin(admin.ModelAdmin):
             level=messages.SUCCESS
         )
 
+#TAGS
 ##############################
 # Tag Admin
 ##############################
-@admin.register(Tag)
-class TagAdmin(admin.ModelAdmin):
-    list_display = ('id', 'name')
-    search_fields = ('name',)
+# @admin.register(Tag)
+# class TagAdmin(admin.ModelAdmin):
+#     list_display = ('id', 'name')
+#     search_fields = ('name',)
 
 ##############################
 # PaymentTypeModel Admin
@@ -335,8 +333,17 @@ class ResponseInline(admin.TabularInline):
 ##############################
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    list_display = ('id', 'title', 'tag', 'creator', 'stage', 'created_at', 'get_sent_messages')
-    list_filter = ('stage', 'tag', 'payment_type')
+    #TAGS
+    list_display = ('id', 
+                    'title', 
+                    #'tag', 
+                    'creator', 
+                    'stage', 
+                    'created_at', 
+                    'get_sent_messages')
+    list_filter = ('stage', 
+                   #'tag', 
+                   'payment_type')
     search_fields = ('title', 'description')
     readonly_fields = ('task_text', 'get_sent_messages')
     inlines = [FilesInline, ResponseInline]

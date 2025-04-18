@@ -8,9 +8,9 @@ from django.utils import timezone
 from telebot.types import Message
 from tgbot.dispatcher import bot
 from tgbot.models import TelegramUser, Configuration, Task
-from tgbot.logics.messages import send_welcome_message
-from tgbot.logics.constants import Commands, Urls
-from tgbot.logics.keyboards import tag_toggle_keyboard
+from tgbot.logics.messages import *
+from tgbot.logics.constants import *
+from tgbot.logics.keyboards import *
 
 @bot.message_handler(commands=[Commands.START])
 def handle_start(message: Message):
@@ -63,8 +63,7 @@ def handle_admin(message: Message):
     Информирует пользователя о времени ответа админа и даёт ссылку на поддержку.
     """
     text = (
-        "Админ может ответить в течение нескольких часов.\n"
-        f"Если нужна помощь прямо сейчас — напишите [Админу]({Urls.SUPPORT})"
+        f"Админ может ответить в течение нескольких часов.'\n[Админ]({Urls.SUPPORT})"
     )
     bot.send_message(
         chat_id=message.chat.id,
@@ -89,24 +88,25 @@ def handle_today(message: Message):
         text=f"За {date_str} {word_number_case_was(count)} {word_number_case_sent(count)} {word_number_case_tasks(count)}"
     )
 
-@bot.message_handler(commands=[Commands.TAGS])
-def handle_tags(message: Message):
-    """
-    Обработчик команды /tags — отправляет клавиатуру с доступными тегами.
-    Позволяет подписаться или отписаться от тегов.
-    """
-    user = TelegramUser.objects.filter(chat_id=message.chat.id).first()
-    if not user:
-        bot.send_message(message.chat.id, "Пользователь не найден. Введите /start сначала.")
-        return
+#TAGS
+# @bot.message_handler(commands=[Commands.TAGS])
+# def handle_tags(message: Message):
+#     """
+#     Обработчик команды /tags — отправляет клавиатуру с доступными тегами.
+#     Позволяет подписаться или отписаться от тегов.
+#     """
+#     user = TelegramUser.objects.filter(chat_id=message.chat.id).first()
+#     if not user:
+#         bot.send_message(message.chat.id, "Пользователь не найден. Введите /start сначала.")
+#         return
 
-    keyboard = tag_toggle_keyboard(user)
-    if not keyboard:
-        bot.send_message(message.chat.id, "Теги пока не заданы.")
-        return
+#     keyboard = tag_toggle_keyboard(user)
+#     if not keyboard:
+#         bot.send_message(message.chat.id, "Теги пока не заданы.")
+#         return
 
-    bot.send_message(
-        chat_id=message.chat.id,
-        text="Выберите теги, на которые хотите подписаться или отписаться:",
-        reply_markup=keyboard
-    )
+#     bot.send_message(
+#         chat_id=message.chat.id,
+#         text="Выберите теги, на которые хотите подписаться или отписаться:",
+#         reply_markup=keyboard
+#     )

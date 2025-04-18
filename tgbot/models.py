@@ -114,12 +114,13 @@ class TelegramUser(models.Model):
     username = models.CharField(max_length=255, blank=True, null=True, verbose_name='Username')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата регистрации')
     can_publish_tasks = models.BooleanField(default=False, verbose_name='Доступ к публикации заданий')
-    subscribed_tags = models.ManyToManyField(
-        'Tag', 
-        blank=True, 
-        related_name='subscribers', 
-        verbose_name='Подписка на теги'
-    )
+    #TAGS
+    # subscribed_tags = models.ManyToManyField(
+    #     'Tag', 
+    #     blank=True, 
+    #     related_name='subscribers', 
+    #     verbose_name='Подписка на теги'
+    # )
     send_admin_notifications = models.BooleanField(default=False, verbose_name='Получать оповещения администратора')
 
     def __str__(self):
@@ -136,17 +137,17 @@ class TelegramUser(models.Model):
         verbose_name = 'Пользователь Telegram'
         verbose_name_plural = 'Пользователи Telegram'
 
+#TAGS
+# class Tag(models.Model):
+#     """Модель тега"""
+#     name = models.CharField(max_length=100, unique=True, verbose_name='Имя тега')
 
-class Tag(models.Model):
-    """Модель тега"""
-    name = models.CharField(max_length=100, unique=True, verbose_name='Имя тега')
+#     def __str__(self):
+#         return self.name
 
-    def __str__(self):
-        return self.name
-
-    class Meta:
-        verbose_name = 'Тег'
-        verbose_name_plural = 'Теги'
+#     class Meta:
+#         verbose_name = 'Тег'
+#         verbose_name_plural = 'Теги'
 
 
 class PaymentTypeModel(models.Model):
@@ -179,17 +180,17 @@ class SentMessage(models.Model):
 class Task(models.Model):
     """Модель задания"""
     class Stage(models.TextChoices):
-        PENDING_TAG = 'pending_tag', 'В ожидании выбора тэга'
+        #PENDING_TAG = 'pending_tag', 'В ожидании выбора тэга'
         CREATED = 'created', 'Создано'
         CLOSED = 'closed', 'Задание закрыто'
-
-    tag = models.ForeignKey(
-        Tag, 
-        on_delete=models.SET_NULL,  
-        blank=True,
-        null=True,
-        verbose_name='Тег',
-    )
+    #TAGS
+    # tag = models.ForeignKey(
+    #     Tag, 
+    #     on_delete=models.SET_NULL,  
+    #     blank=True,
+    #     null=True,
+    #     verbose_name='Тег',
+    # )
     title = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(verbose_name='Текст задания')
     payment_type = models.ForeignKey(
@@ -213,7 +214,7 @@ class Task(models.Model):
     stage = models.CharField(
         max_length=20,
         choices=Stage.choices,
-        default=Stage.PENDING_TAG,
+        default=Stage.CREATED,
         verbose_name='Этап задания'
     )
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата создания')
@@ -229,13 +230,17 @@ class Task(models.Model):
     
     @property
     def task_text(self):
-        tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
-        return f"*Заявка №{self.id}:\n{tag_text}Описание:* {self.description}\n"
+        #TAGS
+        # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
+        # return f"*Заявка №{self.id}:\n{tag_text}* {self.description}\n"
+        return f"*Заявка №{self.id}:*\n{self.description}\n"
     
     @property
     def task_text_with_mention(self):
-        tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
-        return f"*Заявка №{self.id}:\nДиспетчер: *{{mention}}*\n{tag_text}Описание:* {self.description}\n"
+        #TAGS
+        # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
+        # return f"*Заявка №{self.id}:\nДиспетчер: *{{mention}}*\n{tag_text}* {self.description}\n"
+        return f"*Заявка №{self.id}:\nДиспетчер: *{{mention}}\n{self.description}\n"
     
 
     class Meta:
