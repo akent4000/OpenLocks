@@ -67,7 +67,8 @@ def send_mention_notification(
     for ent in sent.entities or []:
         logger.info(ent.type)
         if ent.type == "text_mention":
-            logger.info(ent.url)
+            logger.info(ent.user.id)
+            logger.info(tele_user.id)
             has_mention = True
             break
     logger.info(has_mention)
