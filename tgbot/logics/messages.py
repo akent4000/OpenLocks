@@ -59,6 +59,7 @@ def send_mention_notification(
     # 5) Фолбэк для неудачного text_mention
     has_link = False
     for ent in sent.entities or []:
+        logger.info(ent.type)
         if ent.type == "text_link" and ent.url == f"tg://user?id={actor.chat_id}":
             has_link = True
             break
