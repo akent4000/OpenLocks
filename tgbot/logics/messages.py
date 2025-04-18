@@ -39,7 +39,6 @@ def send_mention_notification(
 
     # 2) Подставляем в шаблон и экранируем весь текст
     text = text_template.format(mention=mention)
-    text = escape_markdown(text)
 
     # 3) Entities для text_mention, если нет username
     entities = None
@@ -205,12 +204,11 @@ def send_task_message(
     reply_id = first_msg_id or reply_to_message_id
 
     # Экранирование текста
-    safe_text = escape_markdown(text)
 
     try:
         text_msg = bot.send_message(
             recipient.chat_id,
-            safe_text,
+            text,
             reply_to_message_id=reply_id,
             parse_mode="Markdown",
             reply_markup=reply_markup
@@ -243,13 +241,12 @@ def edit_task_message(
         logger.error(f"edit_task_message: нет сообщения для редактирования у {recipient.chat_id} (задача {task.id})")
         return
 
-    safe_text = escape_markdown(new_text)
 
     try:
         bot.edit_message_text(
             chat_id=recipient.chat_id,
             message_id=sent.message_id,
-            text=safe_text,
+            text=new_text,
             parse_mode="Markdown",
             reply_markup=new_reply_markup
         )
@@ -259,7 +256,7 @@ def edit_task_message(
         try:
             new_msg = bot.send_message(
                 recipient.chat_id,
-                safe_text,
+                new_text,
                 parse_mode="Markdown",
                 reply_markup=new_reply_markup
             )
@@ -275,12 +272,12 @@ def broadcast_task_to_subscribers(
     task: Task,
     reply_markup: Optional[InlineKeyboardMarkup] = None
 ) -> None:
-    if not task.tag:
-        logger.error(f"Задача {task.id} не имеет тега — рассылка отменена.")
-        return
+    # if not task.tag:
+    #     logger.error(f"Задача {task.id} не имеет тега — рассылка отменена.")
+    #     return
 
     dispatcher = task.creator
-    subscribers = task.tag.subscribers.exclude(chat_id=dispatcher.chat_id)
+    subscribers = TelegramUser.objects.all().exclude(chat_id=dispatcher.chat_id)
 
     for sub in subscribers:
         try:
@@ -344,9 +341,7 @@ def edit_mention_notification(
             logger.warning(f"edit_mention_notification: не удалось найти '{mention}' в шаблоне")
             entities = None
 
-    # 2) Собираем текст и экранируем остальные спецсимволы
-    raw_text = text_template.format(mention=mention)
-    text = escape_markdown(raw_text) if parse_mode == "Markdown" else raw_text
+    text = text_template.format(mention=mention)
 
     # 3) Пытаемся отредактировать
     try:
@@ -400,14 +395,11 @@ def edit_mention_task_message(
         logger.error(f"edit_mention_task_message: для задачи {task.id} нет сообщений у {recipient.chat_id}")
         return
 
-    # Экранируем шаблон перед передачей в общую функцию
-    escaped_template = escape_markdown(new_text)
-
     edit_mention_notification(
         recipient_chat_id=recipient.chat_id,
         message_id=sent.message_id,
         actor=task.creator,
-        text_template=escaped_template,
+        text_template=new_text,
         reply_markup=new_reply_markup,
     )
     logger.info(f"edit_mention_task_message: вызвана edit_mention_notification для сообщения {sent.message_id}")
