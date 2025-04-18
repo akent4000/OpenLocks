@@ -87,7 +87,7 @@ def send_mention_notification(
             if callback:
                 bot.answer_callback_query(callback.id, "Не удалось упомянуть вас по имени.")
             logger.info(f"send_mention_notification: отправлено уведомление о проблеме упоминания пользователю {actor.chat_id}")
-            return None
+            return Constants.MENTION_PROBLEM
         except Exception as e:
             logger.warning(f"send_mention_notification fallback: ошибка при fallback‑логике: {e}")
 
@@ -302,15 +302,21 @@ def broadcast_task_to_users(
                 reply_markup=reply_markup
             )
 
-            sent = SentMessage.objects.create(
-                message_id=text_msg.message_id,
-                telegram_user=sub
-            )
+            if text_msg == Constants.MENTION_PROBLEM:
+                logger.error(f"send_mention_notification не удалось создать упоминание пользователя, рассылка прекращена")
+                return
 
-            task.sent_messages.add(sent)
-            task.save()
+            if text_msg:
+                sent = SentMessage.objects.create(
+                    message_id=text_msg.message_id,
+                    telegram_user=sub
+                )
 
-            logger.info(f"Задача {task.id} отправлена мастеру {sub.chat_id}")
+                task.sent_messages.add(sent)
+                task.save()
+
+                logger.info(f"Задача {task.id} отправлена мастеру {sub.chat_id}")
+                
         except Exception as e:
             logger.error(f"Не удалось отправить задачу {task.id} мастеру {sub.chat_id}: {e}")
         time.sleep(0.04)
