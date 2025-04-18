@@ -7,7 +7,6 @@ from django.dispatch import receiver
 from tgbot.models import *
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 import threading
-from tgbot.handlers.utils import delete_all_task_related
 
 from loguru import logger
 logger.add("logs/signals.log", rotation="10 MB", level="INFO")
@@ -117,6 +116,7 @@ def cleanup_user_tasks(sender, instance: TelegramUser, **kwargs):
     count = tasks.count()
     for task in tasks:
         try:
+            from tgbot.handlers.utils import delete_all_task_related
             delete_all_task_related(task)
             task.delete()
             logger.info(f"cleanup_user_tasks: удалена задача {task.id} пользователя {instance.chat_id}")
@@ -144,6 +144,7 @@ def delete_tasks_on_block(sender, instance: TelegramUser, created, **kwargs):
         count = tasks.count()
         for task in tasks:
             try:
+                from tgbot.handlers.utils import delete_all_task_related
                 delete_all_task_related(task)
                 task.delete()
                 logger.info(f"delete_tasks_on_block: удалена задача {task.id} пользователя {instance.chat_id}")
@@ -153,4 +154,5 @@ def delete_tasks_on_block(sender, instance: TelegramUser, created, **kwargs):
 
 @receiver(pre_delete, sender=Task)
 def cleanup_task(sender, instance: Task, **kwargs):
+    from tgbot.handlers.utils import delete_all_task_related
     delete_all_task_related(instance)
