@@ -7,6 +7,7 @@ from django.dispatch import receiver
 from tgbot.models import *
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 import threading
+from tgbot.handlers.utils import delete_all_task_related
 
 from loguru import logger
 logger.add("logs/signals.log", rotation="10 MB", level="INFO")
@@ -109,3 +110,47 @@ def cleanup_response_sent_messages(sender, instance, **kwargs):
     msg_ids = list(instance.sent_messages.values_list('id', flat=True))
     if msg_ids:
         SentMessage.objects.filter(id__in=msg_ids).delete()
+
+@receiver(pre_delete, sender=TelegramUser)
+def cleanup_user_tasks(sender, instance: TelegramUser, **kwargs):
+    tasks = Task.objects.filter(creator=instance)
+    count = tasks.count()
+    for task in tasks:
+        try:
+            delete_all_task_related(task)
+            task.delete()
+            logger.info(f"cleanup_user_tasks: удалена задача {task.id} пользователя {instance.chat_id}")
+        except Exception as e:
+            logger.error(f"cleanup_user_tasks: не удалось удалить задачу {task.id}: {e}")
+    logger.info(f"cleanup_user_tasks: всего удалено {count} задач для пользователя {instance.chat_id}")
+
+@receiver(pre_save, sender=TelegramUser)
+def telegramuser_pre_save(sender, instance: TelegramUser, **kwargs):
+    if instance.pk:
+        try:
+            instance._old_instance = sender.objects.get(pk=instance.pk)
+        except sender.DoesNotExist:
+            instance._old_instance = None
+
+@receiver(post_save, sender=TelegramUser)
+def delete_tasks_on_block(sender, instance: TelegramUser, created, **kwargs):
+    if created:
+        return
+
+    old = getattr(instance, "_old_instance", None)
+    # если флаг blocked поднимается с False на True
+    if old and not old.blocked and instance.blocked:
+        tasks = Task.objects.filter(creator=instance)
+        count = tasks.count()
+        for task in tasks:
+            try:
+                delete_all_task_related(task)
+                task.delete()
+                logger.info(f"delete_tasks_on_block: удалена задача {task.id} пользователя {instance.chat_id}")
+            except Exception as e:
+                logger.error(f"delete_tasks_on_block: не удалось удалить задачу {task.id}: {e}")
+        logger.info(f"delete_tasks_on_block: всего удалено {count} задач для заблокированного пользователя {instance.chat_id}")
+
+@receiver(pre_delete, sender=Task)
+def cleanup_task(sender, instance: Task, **kwargs):
+    delete_all_task_related(instance)
