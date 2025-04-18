@@ -291,7 +291,7 @@ def broadcast_task_to_users(
     #     return
 
     dispatcher = task.creator
-    users = TelegramUser.objects.exclude(chat_id=dispatcher.chat_id)
+    users = TelegramUser.objects.exclude(chat_id=dispatcher.chat_id).exclude(blocked=True)
 
     for sub in users:
         try:
