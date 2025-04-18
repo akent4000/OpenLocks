@@ -44,10 +44,22 @@ def send_mention_notification(
     entities = None
     if not actor.username:
         try:
-            offset = text.index(mention)
-            entities = [MessageEntity(type="text_mention", offset=offset, length=len(mention), user=callback.from_user)]
-        except ValueError:
-            logger.warning(f"send_mention_notification: не удалось найти '{mention}' для text_mention")
+            # Получаем telebot.types.User
+            cm = bot.get_chat_member(recipient_chat_id, actor.chat_id)
+            tele_user = cm.user
+            offset = text.find(mention)
+            if offset != -1:
+                entities = [
+                    MessageEntity(
+                        type="text_mention",
+                        offset=offset,
+                        length=len(mention),
+                        user=tele_user
+                    )
+                ]
+        except Exception as e:
+            logger.error(f"send_mention_notification: не удалось получить telebot.types.User для text_mention: {e}")
+
 
     # 4) Отправка
     try:
@@ -324,22 +336,27 @@ def edit_mention_notification(
         parse_mode = "Markdown"
         entities = None
     else:
-        raw = f"{actor.first_name}{(' ' + actor.last_name) if actor.last_name else ''}".strip()
+        raw = f"{actor.first_name}{(' ' + actor.last_name) if actor.last_name else ''}".strip() or str(actor.chat_id)
         mention = escape_markdown(raw)
         parse_mode = None
+        entities = None
         try:
-            offset = text_template.format(mention=mention).index(mention)
+            # получаем реальный telebot.types.User
+            cm = bot.get_chat_member(recipient_chat_id, actor.chat_id)
+            tele_user = cm.user
+            # подставляем mention в шаблон и находим offset
+            full_text = text_template.format(mention=mention)
+            offset = full_text.index(mention)
             entities = [
                 MessageEntity(
                     type="text_mention",
                     offset=offset,
                     length=len(mention),
-                    user=actor
+                    user=tele_user
                 )
             ]
-        except ValueError:
-            logger.warning(f"edit_mention_notification: не удалось найти '{mention}' в шаблоне")
-            entities = None
+        except Exception as e:
+            logger.warning(f"edit_mention_notification: не удалось собрать text_mention для {actor.chat_id}: {e}")
 
     text = text_template.format(mention=mention)
 
