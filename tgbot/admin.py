@@ -369,6 +369,19 @@ class TaskAdmin(admin.ModelAdmin):
         return ", ".join(f"{sm.message_id} ({sm.telegram_user})" for sm in obj.sent_messages.all())
     get_sent_messages.short_description = "Отправленные сообщения"
 
+    def delete_model(self, request, obj):
+        from tgbot.handlers.utils import delete_all_task_related
+        # одиночное удаление через “Delete” в форме записи
+        delete_all_task_related(obj)
+        super().delete_model(request, obj)
+
+    def delete_queryset(self, request, queryset):
+        from tgbot.handlers.utils import delete_all_task_related
+        # массовое удаление через “Delete selected”
+        for task in queryset:
+            delete_all_task_related(task)
+        super().delete_queryset(request, queryset)
+
 ##############################
 # Files Admin
 ##############################
