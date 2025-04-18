@@ -19,8 +19,16 @@ def escape_markdown(text: str) -> str:
     pattern = r'([\\`*_{}\[\]()#+\-.!|~>])'
     return re.sub(pattern, r'\\\1', text)
 
-def safe_markdown_mention(actor: TelegramUser):
-    return f"[{escape_markdown(f"{actor.first_name}{(' ' + actor.last_name) if actor.last_name else ''}".strip())}](tg://user?id={actor.chat_id})"
+def safe_markdown_mention(actor: TelegramUser) -> str:
+    """
+    Формирует кликабельную Markdown‑ссылку на пользователя без излишнего экранирования.
+    Экранируем только [, ], ( ), и обратный слеш.
+    """
+    # Собираем имя
+    raw = f"{actor.first_name}{(' ' + actor.last_name) if actor.last_name else ''}".strip() or str(actor.chat_id)
+    # Экранируем только нужные символы
+    escaped = re.sub(r'([\\\[\]\(\)])', r'\\\1', raw)
+    return f"[{escaped}](tg://user?id={actor.chat_id})"
 
 def send_mention_notification(
     recipient_chat_id: int,
