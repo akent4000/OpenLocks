@@ -65,7 +65,7 @@ def send_mention_notification(
             break
     logger.info(has_mention)
     # 5) Фолбэк, если нет ссылки и это не @username
-    if actor.username and not has_mention:
+    if not actor.username and not has_mention:
         try:
             bot.delete_message(chat_id=recipient_chat_id, message_id=sent.message_id)
             logger.info(f"send_mention_notification: удалено неудачное mention-сообщение {sent.message_id}")
