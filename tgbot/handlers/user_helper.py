@@ -45,10 +45,6 @@ def sync_user_data(update: Message | CallbackQuery) -> TelegramUser | None:
     if user.username != (chat.username or ""):
         user.username = chat.username or ""
         changed = True
-    desired_flag = Configuration.get_solo().auto_request_permission
-    if user.can_publish_tasks != desired_flag:
-        user.can_publish_tasks = desired_flag
-        changed = True
 
     if changed:
         try:
