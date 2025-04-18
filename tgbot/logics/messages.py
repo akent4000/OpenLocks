@@ -65,12 +65,10 @@ def send_mention_notification(
     # 5) Фолбэк для неудачного text_mention
     has_mention = False
     for ent in sent.entities or []:
-        logger.info(ent.type)
         if ent.type == "text_mention" and ent.user.id == actor.chat_id:
             has_mention = True
             break
-    logger.info(has_mention)
-    # 5) Фолбэк, если нет ссылки и это не @username
+    
     if not actor.username and not has_mention:
         try:
             bot.delete_message(chat_id=recipient_chat_id, message_id=sent.message_id)
@@ -316,16 +314,17 @@ def broadcast_task_to_users(
                 task.save()
 
                 logger.info(f"Задача {task.id} отправлена мастеру {sub.chat_id}")
-                
+
         except Exception as e:
             logger.error(f"Не удалось отправить задачу {task.id} мастеру {sub.chat_id}: {e}")
         time.sleep(0.04)
 
 def edit_mention_notification(
-    recipient_chat_id: int,
-    message_id: int,
+    recipient: TelegramUser,
+    message: SentMessage,
     actor: TelegramUser,
     text_template: str,
+    task: Task,
     reply_markup: Optional[InlineKeyboardMarkup] = None,
 ):
     """
@@ -343,26 +342,26 @@ def edit_mention_notification(
     # 3) Пытаемся отредактировать
     try:
         bot.edit_message_text(
-            chat_id=recipient_chat_id,
-            message_id=message_id,
+            chat_id=recipient,
+            message_id=message,
             text=text,
             parse_mode="Markdown",
             reply_markup=reply_markup
         )
-        logger.info(f"edit_mention_notification: отредактировано сообщение {message_id}")
+        logger.info(f"edit_mention_notification: отредактировано сообщение {message}")
         return
     except Exception as e:
-        logger.warning(f"edit_mention_notification: не удалось отредактировать {message_id}: {e}")
+        logger.warning(f"edit_mention_notification: не удалось отредактировать {message}: {e}")
 
     # 4) Фолбэк: удаляем старое и шлём заново
     try:
-        bot.delete_message(chat_id=recipient_chat_id, message_id=message_id)
-        logger.info(f"edit_mention_notification: удалено старое сообщение {message_id}")
+        bot.delete_message(chat_id=recipient, message_id=message)
+        logger.info(f"edit_mention_notification: удалено старое сообщение {message}")
     except Exception as e:
-        logger.warning(f"edit_mention_notification: не удалось удалить {message_id}: {e}")
+        logger.warning(f"edit_mention_notification: не удалось удалить {message}: {e}")
 
     send_mention_notification(
-        recipient_chat_id=recipient_chat_id,
+        recipient_chat_id=recipient,
         actor=actor,
         text_template=text_template,
         reply_to_message_id=None,
@@ -393,10 +392,11 @@ def edit_mention_task_message(
 
 
     edit_mention_notification(
-        recipient_chat_id=recipient.chat_id,
-        message_id=sent.message_id,
+        recipient=recipient,
+        message=sent,
         actor=task.creator,
         text_template=new_text,
         reply_markup=new_reply_markup,
+        task=task
     )
     logger.info(f"edit_mention_task_message: вызвана edit_mention_notification для сообщения {sent.message_id}")
