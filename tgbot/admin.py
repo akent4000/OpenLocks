@@ -245,9 +245,6 @@ class ConfigurationAdmin(SingletonModelAdmin):
         (None, {'fields': ('test_mode', 'auto_request_permission')}),
     )
 
-##############################
-# TelegramUser Admin
-##############################
 @admin.register(TelegramUser)
 class TelegramUserAdmin(admin.ModelAdmin):
     list_display = (
@@ -256,21 +253,23 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'last_name', 
         'username',
         'can_publish_tasks', 
-        'created_at', 
-        #'get_subscribed_tags',
-        'send_admin_notifications'
+        'blocked',
+        'send_admin_notifications',
+        'created_at',
     )
     search_fields = ('chat_id', 'first_name', 'last_name', 'username')
-    list_filter = ('can_publish_tasks', 
-                   'created_at', 
-                   #'subscribed_tags', 
-                   'send_admin_notifications')
-    actions = ['allow_publish_tasks', 'disallow_publish_tasks']
-
-    #TAGS
-    # def get_subscribed_tags(self, obj):
-    #     return ", ".join(tag.name for tag in obj.subscribed_tags.all())
-    # get_subscribed_tags.short_description = "Подписка на теги"
+    list_filter = (
+        'can_publish_tasks', 
+        'blocked',
+        'send_admin_notifications',
+        'created_at',
+    )
+    actions = [
+        'allow_publish_tasks',
+        'disallow_publish_tasks',
+        'block_users',
+        'unblock_users',
+    ]
 
     @admin.action(description="Разрешить доступ к публикации заданий")
     def allow_publish_tasks(self, request, queryset):
@@ -287,6 +286,24 @@ class TelegramUserAdmin(admin.ModelAdmin):
         self.message_user(
             request,
             f"Доступ к публикации заданий отозван у {updated} пользователя(ей).",
+            level=messages.SUCCESS
+        )
+
+    @admin.action(description="Заблокировать пользователя(ей)")
+    def block_users(self, request, queryset):
+        updated = queryset.update(blocked=True)
+        self.message_user(
+            request,
+            f"Заблокировано {updated} пользователь(ей).",
+            level=messages.SUCCESS
+        )
+
+    @admin.action(description="Разблокировать пользователя(ей)")
+    def unblock_users(self, request, queryset):
+        updated = queryset.update(blocked=False)
+        self.message_user(
+            request,
+            f"Разблокировано {updated} пользователь(ей).",
             level=messages.SUCCESS
         )
 
