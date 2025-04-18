@@ -11,26 +11,13 @@ from tgbot.models import TelegramUser, Configuration, Task
 from tgbot.logics.messages import *
 from tgbot.logics.constants import *
 from tgbot.logics.keyboards import *
+from tgbot.handlers.user_helper import *
 
 @bot.message_handler(commands=[Commands.START])
 def handle_start(message: Message):
     try:
         logger.info(f"User {message.chat.id} started the bot.")
-        chat_id = message.chat.id
-
-        user, created = TelegramUser.objects.get_or_create(
-            chat_id=chat_id,
-            defaults={
-                'first_name': message.chat.first_name,
-                'last_name': message.chat.last_name,
-                'username': message.chat.username,
-                'can_publish_tasks': Configuration.get_solo().auto_request_permission,
-            }
-        )
-        if not created and user.username != message.chat.username:
-            user.username = message.chat.username
-            user.save()
-
+        user, created = sync_user_data(message)
         logger.info(f"User {user} created: {created}")
         send_welcome_message(created=created, user=user)
 
