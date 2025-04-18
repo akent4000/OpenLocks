@@ -105,7 +105,7 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
 
     # Рассылаем мастерам
     #TAGS
-    broadcast_task_to_subscribers(
+    broadcast_task_to_users(
         task=task,
         reply_markup=payment_types_keyboard(task=task)
     )

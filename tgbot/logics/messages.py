@@ -268,7 +268,7 @@ def edit_task_message(
             logger.error(f"edit_task_message: ошибка при отправке нового сообщения задачи {task.id}: {ex}")
 
 
-def broadcast_task_to_subscribers(
+def broadcast_task_to_users(
     task: Task,
     reply_markup: Optional[InlineKeyboardMarkup] = None
 ) -> None:
@@ -277,9 +277,9 @@ def broadcast_task_to_subscribers(
     #     return
 
     dispatcher = task.creator
-    subscribers = TelegramUser.objects.all().exclude(chat_id=dispatcher.chat_id)
+    users = TelegramUser.objects.all().exclude(dispatcher,)
 
-    for sub in subscribers:
+    for sub in users:
         try:
             # 1) файлы
             first_msg_id = send_task_files(sub, task)
@@ -394,6 +394,7 @@ def edit_mention_task_message(
     if not sent:
         logger.error(f"edit_mention_task_message: для задачи {task.id} нет сообщений у {recipient.chat_id}")
         return
+
 
     edit_mention_notification(
         recipient_chat_id=recipient.chat_id,

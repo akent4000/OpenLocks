@@ -285,7 +285,7 @@ def handle_task_repeat(call: CallbackQuery):
         reply_markup=dispather_task_keyboard(task=task),
     )
 
-    broadcast_task_to_subscribers(
+    broadcast_task_to_users(
         task=task,
         reply_markup=payment_types_keyboard(task)
     )
