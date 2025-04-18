@@ -9,12 +9,54 @@ from tgbot.handlers.user_helper import sync_user_data
 
 class SyncBot(TeleBot):
     def process_new_updates(self, updates: list[Update]):
+        to_handle = []
         for update in updates:
+            # 1) Синхронизируем пользователя
             if update.message:
-                sync_user_data(update.message)
+                result = sync_user_data(update.message)
             elif update.callback_query:
-                sync_user_data(update.callback_query)
-        super().process_new_updates(updates)
+                result = sync_user_data(update.callback_query)
+            else:
+                result = None
+
+            user = result[0] if isinstance(result, tuple) else result
+
+            # 2) Проверяем блокировку
+            if self._handle_blocked_user(update, user):
+                # если заблокирован — не передаём дальше
+                continue
+
+            to_handle.append(update)
+
+        if to_handle:
+            super().process_new_updates(to_handle)
+
+    def _handle_blocked_user(self, update: Update, user) -> bool:
+        """
+        Если пользователь заблокирован, отправляет уведомление и возвращает True.
+        Иначе возвращает False.
+        """
+        if not user or not getattr(user, "blocked", False):
+            return False
+
+        try:
+            msg = "❌ Вы заблокированы и не можете пользоваться ботом."
+            if update.message:
+                self.send_message(
+                    chat_id=update.message.chat.id,
+                    text=msg,
+                    reply_to_message_id=update.message.message_id
+                )
+            elif update.callback_query:
+                self.answer_callback_query(
+                    update.callback_query.id,
+                    msg
+                )
+            logger.info(f"_handle_blocked_user: пользователь {user.chat_id} заблокирован, уведомление отправлено")
+        except Exception as e:
+            logger.error(f"_handle_blocked_user: ошибка при уведомлении заблокированного пользователя: {e}")
+
+        return True
 
 logger.add("logs/dispatcher.log", rotation="10 MB", level="INFO")
 

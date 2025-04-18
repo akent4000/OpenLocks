@@ -114,6 +114,7 @@ class TelegramUser(models.Model):
     username = models.CharField(max_length=255, blank=True, null=True, verbose_name='Username')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата регистрации')
     can_publish_tasks = models.BooleanField(default=False, verbose_name='Доступ к публикации заданий')
+    blocked = models.BooleanField(default=False, verbose_name='Заблокирован ли пользователь')
     #TAGS
     # subscribed_tags = models.ManyToManyField(
     #     'Tag', 
