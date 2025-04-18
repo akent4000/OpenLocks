@@ -45,7 +45,7 @@ def send_mention_notification(
     if not actor.username:
         try:
             offset = text.index(mention)
-            entities = [MessageEntity(type="text_mention", offset=offset, length=len(mention), user=actor)]
+            entities = [MessageEntity(type="text_mention", offset=offset, length=len(mention), user=callback.from_user)]
         except ValueError:
             logger.warning(f"send_mention_notification: не удалось найти '{mention}' для text_mention")
 
