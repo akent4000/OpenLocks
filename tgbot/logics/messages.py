@@ -66,9 +66,7 @@ def send_mention_notification(
     has_mention = False
     for ent in sent.entities or []:
         logger.info(ent.type)
-        if ent.type == "text_mention":
-            logger.info(ent.user.id)
-            logger.info(tele_user.id)
+        if ent.type == "text_mention" and ent.user.id == actor.chat_id:
             has_mention = True
             break
     logger.info(has_mention)
