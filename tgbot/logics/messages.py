@@ -37,6 +37,12 @@ def send_mention_notification(
     if actor.username:
         mention = escape_markdown(f"@{actor.username}")
     else:
+        try:
+            # Получаем telebot.types.User
+            cm = bot.get_chat_member(actor.chat_id, actor.chat_id)
+            tele_user = cm.user
+        except Exception as e:
+            logger.error(f"send_mention_notification: не удалось получить telebot.types.User для text_mention: {e}")
         mention = safe_markdown_mention(actor)
 
     # 2) Подставляем в шаблон и экранируем весь текст
@@ -60,7 +66,7 @@ def send_mention_notification(
     has_mention = False
     for ent in sent.entities or []:
         logger.info(ent.type)
-        if ent.type == "text_mention" and ent.url == f"tg://user?id={actor.chat_id}":
+        if ent.type == "text_mention" and ent.user == tele_user:
             has_mention = True
             break
     logger.info(has_mention)
@@ -69,7 +75,6 @@ def send_mention_notification(
         try:
             bot.delete_message(chat_id=recipient_chat_id, message_id=sent.message_id)
             logger.info(f"send_mention_notification: удалено неудачное mention-сообщение {sent.message_id}")
-
             bot.send_message(
                 chat_id=actor.chat_id,
                 text=(
@@ -82,6 +87,7 @@ def send_mention_notification(
             if callback:
                 bot.answer_callback_query(callback.id, "Не удалось упомянуть вас по имени.")
             logger.info(f"send_mention_notification: отправлено уведомление о проблеме упоминания пользователю {actor.chat_id}")
+            return None
         except Exception as e:
             logger.warning(f"send_mention_notification fallback: ошибка при fallback‑логике: {e}")
 
