@@ -106,7 +106,7 @@ def update_dipsather_task_text(
             recipient=task.creator,
             task=task,
             new_text=text,
-            reply_markup=reply_markup
+            new_reply_markup=reply_markup
         )
         logger.info(f"update_dipsather_task_text: изменено сообщение {sent.message_id} для chat_id={task.creator.chat_id}")
     except Exception as e:
@@ -129,7 +129,7 @@ def update_dipsather_task_text(
                 recipient=task.creator,
                 task=task,
                 new_text=text,
-                reply_markup=reply_markup
+                new_reply_markup=reply_markup
             )
             bot.send_message(
                 chat_id=actor.chat_id,
