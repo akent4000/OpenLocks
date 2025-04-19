@@ -237,7 +237,7 @@ class Task(models.Model):
         #TAGS
         # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
         # return f"*Заявка №{self.id}:\n{tag_text}* {self.description}\n"
-        text = f"*Заявка №{self.random_task_number}:*\n{self.description}\n"
+        text = f"*Ваша заявка №{self.random_task_number}:*\n{self.description}\n"
 
         if self.responses.all():
             text += "\n*Отклики:*\n"
