@@ -6,6 +6,7 @@ from tgbot.logics.commands import init_bot_commands
 from telebot import TeleBot
 from telebot.types import Update, Message, CallbackQuery
 from tgbot.handlers.user_helper import sync_user_data
+from tgbot.logics.random_numbers import RandomNumberList
 
 class SyncBot(TeleBot):
     def process_new_updates(self, updates: list[Update]):

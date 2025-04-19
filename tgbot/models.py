@@ -10,6 +10,9 @@ from django.utils import timezone
 from django.core.validators import RegexValidator
 import subprocess
 from solo.models import SingletonModel
+from tgbot.logics.constants import Constants
+from tgbot.logics.random_numbers import random_number_list
+
 
 from loguru import logger
 logger.add("logs/models.log", rotation="10 MB", level="INFO")
@@ -230,18 +233,23 @@ class Task(models.Model):
         return self.title
     
     @property
+    def random_task_number(self):
+        number = random_number_list.get(self.id)
+        return f"{number:0{Constants.NUMBER_LENGTH}}"
+
+    @property
     def task_text(self):
         #TAGS
         # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
         # return f"*Заявка №{self.id}:\n{tag_text}* {self.description}\n"
-        return f"*Заявка №{self.id}:*\n{self.description}\n"
+        return f"*Заявка №{self.random_task_number}:*\n{self.description}\n"
     
     @property
     def task_text_with_mention(self):
         #TAGS
         # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
         # return f"*Заявка №{self.id}:\nДиспетчер: *{{mention}}*\n{tag_text}* {self.description}\n"
-        return f"*Заявка №{self.id}:\nДиспетчер: *{{mention}}\n{self.description}\n"
+        return f"*Заявка №{self.random_task_number}:\nДиспетчер: *{{mention}}\n{self.description}\n"
     
 
     class Meta:

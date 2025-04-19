@@ -36,6 +36,8 @@ class Urls:
 class Constants:
     MIN_TEXT_LENGTH = 13
     MENTION_PROBLEM = "MENTION_PROBLEM"
+    RANDOM_LIST_SEED = 2649037
+    NUMBER_LENGTH = 4
 
 class Messages:
     WELCOME_MESSAGE = f"Для добавления напишите [Администратору]({Urls.SUPPORT})\nПосле добавления введите /start"
