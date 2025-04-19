@@ -252,7 +252,7 @@ class Task(models.Model):
             text_template = f"Мастер {{mention}} хочет забрать заявку {response.payment_type.name}\n"
             text += text_template.format(mention=mention)
             
-        return f"*Заявка №{self.random_task_number}:*\n{self.description}\n"
+        return text
     
     @property
     def master_task_text_with_dispather_mention(self):
