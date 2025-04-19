@@ -5,8 +5,11 @@ from tgbot.logics.commands import init_bot_commands
 
 from telebot import TeleBot
 from telebot.types import Update, Message, CallbackQuery
+from telebot.apihelper import ApiException
+
 from tgbot.handlers.user_helper import sync_user_data
 from tgbot.logics.random_numbers import RandomNumberList
+
 
 class SyncBot(TeleBot):
     def process_new_updates(self, updates: list[Update]):
@@ -46,6 +49,62 @@ class SyncBot(TeleBot):
             logger.error(f"_handle_blocked_user: ошибка при обработке заблокированного: {e}")
 
         return True
+    
+    def edit_message_text(
+        self,
+        chat_id: int,
+        message_id: int,
+        text: str,
+        parse_mode: str | None = None,
+        reply_markup = None,
+        **kwargs
+    ):
+        """
+        Безопасно правит текст и/или клавиатуру сообщения.
+        Игнорирует ошибку 'message is not modified' от Telegram API.
+        """
+        try:
+            return super().edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=text,
+                parse_mode=parse_mode,
+                reply_markup=reply_markup,
+                **kwargs
+            )
+        except ApiException as e:
+            err = str(e).lower()
+            if "message is not modified" in err or "reply_markup is not modified" in err:
+                # ничего не изменилось — пропускаем
+                return None
+            # другая ошибка — логируем и пробрасываем
+            logger.error(f"Не удалось отредактировать сообщение {message_id}: {e}")
+            raise
+
+    def edit_message_reply_markup(
+        self,
+        chat_id: int,
+        message_id: int,
+        reply_markup,
+        **kwargs
+    ):
+        """
+        Безопасно правит только клавиатуру.
+        Игнорирует 'reply_markup is not modified'.
+        """
+        try:
+            return super().edit_message_reply_markup(
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=reply_markup,
+                **kwargs
+            )
+        except ApiException as e:
+            err = str(e).lower()
+            if "reply_markup is not modified" in err or "message is not modified" in err:
+                return None
+            logger.error(f"Не удалось отредактировать клавиатуру для {message_id}: {e}")
+            raise
 
 logger.add("logs/dispatcher.log", rotation="10 MB", level="INFO")
 
