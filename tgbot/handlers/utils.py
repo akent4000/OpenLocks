@@ -335,12 +335,22 @@ def handle_payment_select(call: CallbackQuery):
         payment_type=payment_type
     )
 
-    update_dipsather_task_text(
+    sent = update_dipsather_task_text(
         task=task,
         response=response,
         callback=call,
         reply_markup=dispather_task_keyboard(task=task),
     )
+
+    if sent and sent != Constants.MENTION_PROBLEM:
+        edit_master_task_message(
+            recipient=master,
+            task=task,
+            new_text=f"*Ваш отклик отправлен*\n\n{task.master_task_text_with_dispather_mention}",
+            new_reply_markup=master_response_cancel_keyboard(response=response)
+        )
+
+        bot.answer_callback_query(call.id, "Ваш отклик отправлен")
     # reply_to = last_disp.message_id if last_disp else None
 
     # # 5. Формируем шаблон текста с placeholder {mention}
@@ -376,15 +386,7 @@ def handle_payment_select(call: CallbackQuery):
     # response.save()
 
     # 8. Обновляем сообщение мастера
-    edit_master_task_message(
-        recipient=master,
-        task=task,
-        new_text=f"*Ваш отклик отправлен*\n\n{task.master_task_text_with_dispather_mention}",
-        new_reply_markup=master_response_cancel_keyboard(response=response)
-    )
-
-    # 9. Подтверждаем кнопку
-    bot.answer_callback_query(call.id, "Ваш отклик отправлен")
+    
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.RESPONSE_CANCEL}?"))
@@ -412,7 +414,7 @@ def handle_response_cancel(call: CallbackQuery):
 
     master = response_obj.telegram_user
     task = response_obj.task
-
+    
     for sent in response_obj.sent_messages.all():
         try:
             bot.delete_message(task.creator.chat_id, sent.message_id)
@@ -420,6 +422,11 @@ def handle_response_cancel(call: CallbackQuery):
             logger.error(f"Ошибка при удалении уведомления с ID {sent.message_id}: {e}")
 
     response_obj.delete()
+    sent = update_dipsather_task_text(
+        task=task,
+        callback=call,
+        reply_markup=dispather_task_keyboard(task=task),
+    )
     edit_master_task_message(
         recipient=master,
         task=task,

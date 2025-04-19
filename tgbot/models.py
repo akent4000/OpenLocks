@@ -240,7 +240,7 @@ class Task(models.Model):
         text = f"*Заявка №{self.random_task_number}:*\n{self.description}\n"
 
         if self.responses.all():
-            text += "*Отклики:*\n"
+            text += "\n*Отклики:*\n"
 
         for response in self.responses.all():
             actor = response.telegram_user

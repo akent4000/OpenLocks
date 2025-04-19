@@ -95,11 +95,12 @@ def send_mention_notification(
 
 def update_dipsather_task_text(
     task: Task,
-    response: Response,
+    response: Optional[Response] = None,
     callback: Optional[CallbackQuery] = None,
     reply_markup: Optional[InlineKeyboardMarkup] = None,
 ):
-    actor = response.telegram_user
+    if response:
+        actor = response.telegram_user
     text = task.dispather_task_text
     try:
         sent = edit_task_message(
@@ -114,38 +115,39 @@ def update_dipsather_task_text(
         return None
 
     # 5) Фолбэк для неудачного text_mention
-    has_mention = False
-    for ent in sent.entities or []:
-        if ent.type == "text_mention" and ent.user.id == actor.chat_id:
-            has_mention = True
-            break
-    
-    if not actor.username and not has_mention:
-        try:
-            logger.info(f"update_dipsather_task_text: удалено неудачное mention-сообщение {sent.message_id}")
-            response.delete()
-            text = task.dispather_task_text
-            sent = edit_task_message(
-                recipient=task.creator,
-                task=task,
-                new_text=text,
-                new_reply_markup=reply_markup
-            )
-            bot.send_message(
-                chat_id=actor.chat_id,
-                text=(
-                    "⚠️ Не удалось создать упоминание вашим именем. "
-                    "Пожалуйста, включите пересылку сообщений от бота:\n"
-                    "Настройки → Конфиденциальность → Пересылка сообщений"
-                ),
-                parse_mode="Markdown"
-            )
-            if callback:
-                bot.answer_callback_query(callback.id, "Не удалось упомянуть вас по имени.")
-            logger.info(f"update_dipsather_task_text: отправлено уведомление о проблеме упоминания пользователю {actor.chat_id}")
-            return Constants.MENTION_PROBLEM
-        except Exception as e:
-            logger.warning(f"update_dipsather_task_text fallback: ошибка при fallback‑логике: {e}")
+    if response:
+        has_mention = False
+        for ent in sent.entities or []:
+            if ent.type == "text_mention" and ent.user.id == actor.chat_id:
+                has_mention = True
+                break
+        
+        if not actor.username and not has_mention:
+            try:
+                logger.info(f"update_dipsather_task_text: удалено неудачное mention-сообщение {sent.message_id}")
+                response.delete()
+                text = task.dispather_task_text
+                sent = edit_task_message(
+                    recipient=task.creator,
+                    task=task,
+                    new_text=text,
+                    new_reply_markup=reply_markup
+                )
+                bot.send_message(
+                    chat_id=actor.chat_id,
+                    text=(
+                        "⚠️ Не удалось создать упоминание вашим именем. "
+                        "Пожалуйста, включите пересылку сообщений от бота:\n"
+                        "Настройки → Конфиденциальность → Пересылка сообщений"
+                    ),
+                    parse_mode="Markdown"
+                )
+                if callback:
+                    bot.answer_callback_query(callback.id, "Не удалось упомянуть вас по имени.")
+                logger.info(f"update_dipsather_task_text: отправлено уведомление о проблеме упоминания пользователю {actor.chat_id}")
+                return Constants.MENTION_PROBLEM
+            except Exception as e:
+                logger.warning(f"update_dipsather_task_text fallback: ошибка при fallback‑логике: {e}")
 
     return sent
 
