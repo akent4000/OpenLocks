@@ -239,10 +239,10 @@ class Task(models.Model):
         # return f"*Заявка №{self.id}:\n{tag_text}* {self.description}\n"
         text = f"*Заявка №{self.random_task_number}:*\n{self.description}\n"
 
-        if self.responses:
+        if self.responses.all():
             text += "*Отклики:*\n"
 
-        for response in self.responses:
+        for response in self.responses.all():
             actor = response.telegram_user
             if actor.username:
                 mention = escape_markdown(f"@{actor.username}")
