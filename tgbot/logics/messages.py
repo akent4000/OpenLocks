@@ -351,7 +351,7 @@ def edit_mention_notification(
     try:
         bot.edit_message_text(
             chat_id=recipient,
-            message_id=message,
+            message_id=message.message_id,
             text=text,
             parse_mode="Markdown",
             reply_markup=reply_markup
