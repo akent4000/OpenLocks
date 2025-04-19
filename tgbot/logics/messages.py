@@ -250,7 +250,7 @@ def edit_task_message(
     """
     Редактирует последнее сообщение по задаче с экранированием и логированием.
     """
-    sent = task.sent_messages.filter(telegram_user=recipient).order_by("created_at").last()
+    sent: SentMessage = task.sent_messages.filter(telegram_user=recipient).order_by("created_at").last()
     if not sent:
         logger.error(f"edit_task_message: нет сообщения для редактирования у {recipient.chat_id} (задача {task.id})")
         return
@@ -350,7 +350,7 @@ def edit_mention_notification(
     # 3) Пытаемся отредактировать
     try:
         bot.edit_message_text(
-            chat_id=recipient,
+            chat_id=recipient.chat_id,
             message_id=message.message_id,
             text=text,
             parse_mode="Markdown",
