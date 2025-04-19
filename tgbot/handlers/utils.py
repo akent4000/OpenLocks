@@ -225,7 +225,7 @@ def handle_task_close(call: CallbackQuery):
 
     # 2) Готовим тексты
     # для диспетчера — без упоминаний
-    dispatcher_text = f"*Ваша заявка закрыта*\n\n{task.dispather_task_text}"
+    dispatcher_text = f"*Заявка закрыта*\n\n{task.dispather_task_text}"
     # для мастеров — шаблон с {mention}
     master_template = f"*Заявка закрыта*\n\n{task.master_task_text_with_dispather_mention}"
 
