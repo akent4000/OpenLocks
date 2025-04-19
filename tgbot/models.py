@@ -197,13 +197,6 @@ class Task(models.Model):
     # )
     title = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(verbose_name='Текст задания')
-    payment_type = models.ForeignKey(
-        PaymentTypeModel,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        verbose_name='Тип оплаты'
-    )
     creator = models.ForeignKey(
         TelegramUser,
         on_delete=models.CASCADE,
@@ -238,14 +231,31 @@ class Task(models.Model):
         return f"{number:0{Constants.NUMBER_LENGTH}}"
 
     @property
-    def task_text(self):
+    def dispather_task_text(self):
+        from tgbot.handlers.utils import safe_markdown_mention, escape_markdown
+        from tgbot.models import TelegramUser, Response
         #TAGS
         # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
         # return f"*Заявка №{self.id}:\n{tag_text}* {self.description}\n"
+        text = f"*Заявка №{self.random_task_number}:*\n{self.description}\n"
+
+        if self.responses:
+            text += "*Отклики:*\n"
+
+        for response in self.responses:
+            actor = response.telegram_user
+            if actor.username:
+                mention = escape_markdown(f"@{actor.username}")
+            else:
+                mention = safe_markdown_mention(actor)
+
+            text_template = f"Мастер {{mention}} хочет забрать заявку {response.payment_type.name}\n"
+            text += text_template.format(mention=mention)
+            
         return f"*Заявка №{self.random_task_number}:*\n{self.description}\n"
     
     @property
-    def task_text_with_mention(self):
+    def master_task_text_with_dispather_mention(self):
         #TAGS
         # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
         # return f"*Заявка №{self.id}:\nДиспетчер: *{{mention}}*\n{tag_text}* {self.description}\n"

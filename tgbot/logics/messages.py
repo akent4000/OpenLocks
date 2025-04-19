@@ -4,7 +4,7 @@ from typing import Optional
 from loguru import logger
 
 from tgbot.dispatcher import bot
-from tgbot.models import TelegramUser, Task, Files, SentMessage
+from tgbot.models import *
 from tgbot.logics.constants import *
 from telebot import REPLY_MARKUP_TYPES
 from telebot.types import InputMediaPhoto, InputMediaVideo, MessageEntity, CallbackQuery, InlineKeyboardMarkup
@@ -45,12 +45,6 @@ def send_mention_notification(
     if actor.username:
         mention = escape_markdown(f"@{actor.username}")
     else:
-        try:
-            # Получаем telebot.types.User
-            cm = bot.get_chat_member(actor.chat_id, actor.chat_id)
-            tele_user = cm.user
-        except Exception as e:
-            logger.error(f"send_mention_notification: не удалось получить telebot.types.User для text_mention: {e}")
         mention = safe_markdown_mention(actor)
 
     # 2) Подставляем в шаблон и экранируем весь текст
@@ -99,6 +93,61 @@ def send_mention_notification(
 
     return sent
 
+def update_dipsather_task_text(
+    task: Task,
+    response: Response,
+    callback: Optional[CallbackQuery] = None,
+    reply_markup: Optional[InlineKeyboardMarkup] = None,
+):
+    actor = response.telegram_user
+    text = task.dispather_task_text
+    try:
+        sent = edit_task_message(
+            recipient=task.creator,
+            task=task,
+            new_text=text,
+            reply_markup=reply_markup
+        )
+        logger.info(f"update_dipsather_task_text: изменено сообщение {sent.message_id} для chat_id={task.creator.chat_id}")
+    except Exception as e:
+        logger.error(f"update_dipsather_task_text: ошибка при send_message для chat_id={task.creator.chat_id}: {e}")
+        return None
+
+    # 5) Фолбэк для неудачного text_mention
+    has_mention = False
+    for ent in sent.entities or []:
+        if ent.type == "text_mention" and ent.user.id == actor.chat_id:
+            has_mention = True
+            break
+    
+    if not actor.username and not has_mention:
+        try:
+            logger.info(f"update_dipsather_task_text: удалено неудачное mention-сообщение {sent.message_id}")
+            response.delete()
+            text = task.dispather_task_text
+            sent = edit_task_message(
+                recipient=task.creator,
+                task=task,
+                new_text=text,
+                reply_markup=reply_markup
+            )
+            bot.send_message(
+                chat_id=actor.chat_id,
+                text=(
+                    "⚠️ Не удалось создать упоминание вашим именем. "
+                    "Пожалуйста, включите пересылку сообщений от бота:\n"
+                    "Настройки → Конфиденциальность → Пересылка сообщений"
+                ),
+                parse_mode="Markdown"
+            )
+            if callback:
+                bot.answer_callback_query(callback.id, "Не удалось упомянуть вас по имени.")
+            logger.info(f"update_dipsather_task_text: отправлено уведомление о проблеме упоминания пользователю {actor.chat_id}")
+            return Constants.MENTION_PROBLEM
+        except Exception as e:
+            logger.warning(f"update_dipsather_task_text fallback: ошибка при fallback‑логике: {e}")
+
+    return sent
 
 def send_welcome_message(created: bool, user: TelegramUser) -> None:
     """
@@ -246,7 +295,7 @@ def edit_task_message(
     task: Task,
     new_text: str,
     new_reply_markup: Optional[REPLY_MARKUP_TYPES] = None
-) -> None:
+) -> SentMessage:
     """
     Редактирует последнее сообщение по задаче с экранированием и логированием.
     """
@@ -257,7 +306,7 @@ def edit_task_message(
 
 
     try:
-        bot.edit_message_text(
+        sent = bot.edit_message_text(
             chat_id=recipient.chat_id,
             message_id=sent.message_id,
             text=new_text,
@@ -276,10 +325,12 @@ def edit_task_message(
             )
             new_sent = SentMessage.objects.create(message_id=new_msg.message_id, telegram_user=recipient)
             task.sent_messages.add(new_sent)
+            sent = new_msg
             task.save()
             logger.info(f"edit_task_message: отправлено новое сообщение {new_msg.message_id} для задачи {task.id}")
         except Exception as ex:
             logger.error(f"edit_task_message: ошибка при отправке нового сообщения задачи {task.id}: {ex}")
+    return sent
 
 
 def broadcast_task_to_users(
@@ -298,7 +349,7 @@ def broadcast_task_to_users(
             # 1) файлы
             first_msg_id = send_task_files(sub, task)
 
-            template =task.task_text_with_mention.format(mention="{mention}",)
+            template =task.master_task_text_with_dispather_mention.format(mention="{mention}",)
 
             text_msg = send_mention_notification(
                 recipient_chat_id=sub.chat_id,
@@ -368,7 +419,7 @@ def edit_mention_notification(
     except Exception as e:
         logger.warning(f"edit_mention_notification: не удалось удалить {message}: {e}")
 
-    send_mention_notification(
+    new_msg = send_mention_notification(
         recipient_chat_id=recipient,
         actor=actor,
         text_template=text_template,
@@ -378,7 +429,7 @@ def edit_mention_notification(
     )
 
 
-def edit_mention_task_message(
+def edit_master_task_message(
     recipient: TelegramUser,
     task: Task,
     new_text: str,

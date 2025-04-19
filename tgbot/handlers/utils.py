@@ -225,9 +225,9 @@ def handle_task_close(call: CallbackQuery):
 
     # 2) Готовим тексты
     # для диспетчера — без упоминаний
-    dispatcher_text = f"*Ваша заявка закрыта*\n\n{task.task_text}"
+    dispatcher_text = f"*Ваша заявка закрыта*\n\n{task.dispather_task_text}"
     # для мастеров — шаблон с {mention}
-    master_template = f"*Заявка закрыта*\n\n{task.task_text_with_mention}"
+    master_template = f"*Заявка закрыта*\n\n{task.master_task_text_with_dispather_mention}"
 
     edit_task_message(
         recipient=task.creator,
@@ -240,7 +240,7 @@ def handle_task_close(call: CallbackQuery):
         for sent in task.sent_messages.exclude(telegram_user=task.creator)
     }
     for master in masters:
-        edit_mention_task_message(
+        edit_master_task_message(
             recipient=master,
             task=task,
             new_text=master_template,
@@ -280,7 +280,7 @@ def handle_task_repeat(call: CallbackQuery):
     send_task_message(
         recipient=user, 
         task=task,
-        text=f"*Заявка выложена повторно*:\n{task.task_text}",
+        text=f"*Заявка выложена повторно*:\n{task.dispather_task_text}",
         reply_to_message_id=task.creator_message_id_to_reply,
         reply_markup=dispather_task_keyboard(task=task),
     )
@@ -323,52 +323,63 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
         return
 
-    # 4. Определяем reply_to_message_id для ответного уведомления
     last_disp = (
         task.sent_messages
             .filter(telegram_user=task.creator)
             .order_by("created_at")
             .last()
     )
-    reply_to = last_disp.message_id if last_disp else None
-
-    # 5. Формируем шаблон текста с placeholder {mention}
-    text_template = (
-        f"Мастер {{mention}} хочет забрать заявку №{task.id} {payment_type.name}"
-    )
-
-    # 6. Отправляем уведомление через общую функцию
-    try:
-        sent_msg = send_mention_notification(
-            recipient_chat_id=task.creator.chat_id,
-            actor=master,
-            text_template=text_template,
-            reply_to_message_id=reply_to,
-            callback=call
-        )
-    except Exception as e:
-        logger.error(f"Ошибка при отправке уведомления создателю заявки: {e}")
-        bot.answer_callback_query(call.id, "Ошибка при отправке уведомления.")
-        return
-
-    # 7. Сохраняем отклик и привязанное SentMessage
     response = Response.objects.create(
         task=task,
         telegram_user=master,
         payment_type=payment_type
     )
-    sent_record = SentMessage.objects.create(
-        message_id=sent_msg.message_id,
-        telegram_user=task.creator
+
+    update_dipsather_task_text(
+        task=task,
+        response=response,
+        callback=call,
+        reply_markup=dispather_task_keyboard(task=task),
     )
-    response.sent_messages.add(sent_record)
-    response.save()
+    # reply_to = last_disp.message_id if last_disp else None
+
+    # # 5. Формируем шаблон текста с placeholder {mention}
+    # text_template = (
+    #     f"Мастер {{mention}} хочет забрать заявку №{task.id} {payment_type.name}"
+    # )
+
+    # # 6. Отправляем уведомление через общую функцию
+    # try:
+    #     sent_msg = send_mention_notification(
+    #         recipient_chat_id=task.creator.chat_id,
+    #         actor=master,
+    #         text_template=text_template,
+    #         reply_to_message_id=reply_to,
+    #         callback=call
+    #     )
+    # except Exception as e:
+    #     logger.error(f"Ошибка при отправке уведомления создателю заявки: {e}")
+    #     bot.answer_callback_query(call.id, "Ошибка при отправке уведомления.")
+    #     return
+
+    # # 7. Сохраняем отклик и привязанное SentMessage
+    # response = Response.objects.create(
+    #     task=task,
+    #     telegram_user=master,
+    #     payment_type=payment_type
+    # )
+    # sent_record = SentMessage.objects.create(
+    #     message_id=sent_msg.message_id,
+    #     telegram_user=task.creator
+    # )
+    # response.sent_messages.add(sent_record)
+    # response.save()
 
     # 8. Обновляем сообщение мастера
-    edit_mention_task_message(
+    edit_master_task_message(
         recipient=master,
         task=task,
-        new_text=f"*Ваш отклик отправлен*\n\n{task.task_text_with_mention}",
+        new_text=f"*Ваш отклик отправлен*\n\n{task.master_task_text_with_dispather_mention}",
         new_reply_markup=master_response_cancel_keyboard(response=response)
     )
 
@@ -409,10 +420,10 @@ def handle_response_cancel(call: CallbackQuery):
             logger.error(f"Ошибка при удалении уведомления с ID {sent.message_id}: {e}")
 
     response_obj.delete()
-    edit_mention_task_message(
+    edit_master_task_message(
         recipient=master,
         task=task,
-        new_text=f"*Ваш отклик удалён*\n\n{task.task_text_with_mention}",
+        new_text=f"*Ваш отклик удалён*\n\n{task.master_task_text_with_dispather_mention}",
         new_reply_markup=payment_types_keyboard(task=task)
     )
 

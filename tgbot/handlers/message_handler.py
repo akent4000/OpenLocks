@@ -98,7 +98,7 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
     send_task_message(
         recipient=user,
         task=task,
-        text=f"*Ваша заявка*:\n{task.task_text}",
+        text=f"*Ваша заявка*:\n{task.dispather_task_text}",
         reply_markup=dispather_task_keyboard(task=task),
         reply_to_message_id=task.creator_message_id_to_reply,
     )
