@@ -351,7 +351,8 @@ class ResponseInline(admin.TabularInline):
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     #TAGS
-    list_display = ('id', 
+    list_display = ('id',
+                    'random_task_number',
                     'title', 
                     #'tag', 
                     'creator', 
@@ -360,9 +361,10 @@ class TaskAdmin(admin.ModelAdmin):
                     'get_sent_messages')
     list_filter = ('stage', 
                    #'tag', 
-                   'payment_type')
+                   'creator',
+                   )
     search_fields = ('title', 'description')
-    readonly_fields = ('task_text', 'get_sent_messages')
+    readonly_fields = ('random_task_number', 'get_sent_messages')
     inlines = [FilesInline, ResponseInline]
 
     def get_sent_messages(self, obj):
