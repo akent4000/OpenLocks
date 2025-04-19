@@ -68,7 +68,6 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
     task = Task.objects.create(
         title=text if len(text) <= 255 else text[:255],
         description=text,
-        payment_type=None,
         creator=user,
         creator_message_id_to_reply=reply_to_message_id,
         stage=Task.Stage.CREATED
