@@ -348,29 +348,27 @@ class ResponseInline(admin.TabularInline):
 ##############################
 # Task Admin
 ##############################
+from tgbot.logics.constants import Constants
+from tgbot.logics.random_numbers import random_number_list
+
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
     list_display = (
         'id',
-        'random_number_display',
+        'random_task_number',
         'title',
         'creator',
         'stage',
         'created_at',
+        'get_sent_messages',
     )
-    list_filter = ('stage', 'creator')
-    search_fields = ('title', 'description')  # поиск по тексту
-    readonly_fields = ('random_number_display',)
-    inlines = [FilesInline, ResponseInline]
+    search_fields = ('title', 'description')  # оставляем здесь
+    readonly_fields = ('random_task_number', 'get_sent_messages')
+    # …
 
-    def random_number_display(self, obj):
-        # берём номер из random_number_list по pk и форматируем
-        num = random_number_list.get(obj.id)
-        if num is None:
-            return "-"
-        return f"{num:0{Constants.NUMBER_LENGTH}}"
-    random_number_display.short_description = "Случайный номер"
-    random_number_display.admin_order_field = 'id'
+    def random_task_number(self, obj):
+        return f"{random_number_list.get(obj.pk):0{Constants.NUMBER_LENGTH}}"
+    random_task_number.short_description = "Случайный номер"
 
     def get_search_results(self, request, queryset, search_term):
         """
@@ -380,9 +378,10 @@ class TaskAdmin(admin.ModelAdmin):
         queryset, use_distinct = super().get_search_results(request, queryset, search_term)
 
         if search_term.isdigit() and len(search_term) == Constants.NUMBER_LENGTH:
+            # проходим по уже отфильтрованным записям:
             matching_pks = [
-                pk for pk, num in random_number_list.items()
-                if f"{num:0{Constants.NUMBER_LENGTH}}" == search_term
+                obj.pk for obj in queryset
+                if f"{random_number_list.get(obj.pk):0{Constants.NUMBER_LENGTH}}" == search_term
             ]
             if matching_pks:
                 queryset |= self.model.objects.filter(pk__in=matching_pks)
