@@ -362,31 +362,33 @@ class TaskAdmin(admin.ModelAdmin):
         'created_at',
         'get_sent_messages',
     )
-    search_fields = ('title', 'description', 'random_task_number')  # оставляем здесь
+    # стандартные поля для текстового поиска
+    search_fields = ('title', 'description')
     readonly_fields = ('random_task_number', 'get_sent_messages')
-    # …
 
     def random_task_number(self, obj):
-        return f"{random_number_list.get(obj.pk):0{Constants.NUMBER_LENGTH}}"
+        num = random_number_list.get(obj.pk)
+        return f"{num:0{Constants.NUMBER_LENGTH}}"
     random_task_number.short_description = "Случайный номер"
 
     def get_search_results(self, request, queryset, search_term):
         """
-        Расширяем поиск: если search_term — это цифры нужной длины,
-        пробуем найти задачи по нашему «случайному номеру».
+        Если запрос — ровно та же длина цифр, что NUMBER_LENGTH,
+        игнорируем поиск по текстовым полям и ищем только по случайному номеру.
+        Иначе — обычный поиск по title/description.
         """
-        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
-
+        # проверяем, всё ли цифры, и ровно нужная длина
         if search_term.isdigit() and len(search_term) == Constants.NUMBER_LENGTH:
-            # проходим по уже отфильтрованным записям:
+            # ищем среди всех задач
             matching_pks = [
-                obj.pk for obj in queryset
-                if f"{random_number_list.get(obj.pk):0{Constants.NUMBER_LENGTH}}" == search_term
+                pk for pk in self.model.objects.values_list('pk', flat=True)
+                if f"{random_number_list.get(pk):0{Constants.NUMBER_LENGTH}}" == search_term
             ]
-            if matching_pks:
-                queryset |= self.model.objects.filter(pk__in=matching_pks)
+            queryset = self.model.objects.filter(pk__in=matching_pks)
+            return queryset, False
 
-        return queryset, use_distinct
+        # иначе — стандартная обработка (по title/description)
+        return super().get_search_results(request, queryset, search_term)
 
     def get_sent_messages(self, obj):
         return ", ".join(f"{sm.message_id} ({sm.telegram_user})" for sm in obj.sent_messages.all())
