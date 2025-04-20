@@ -33,11 +33,7 @@ def dispather_task_keyboard(task: Task):
         ButtonNames.CLOSE, 
         callback_data=f"{CallbackData.TASK_CLOSE}?{CallbackData.TASK_ID}={task.id}"
     )
-    repeat_button = InlineKeyboardButton(
-        ButtonNames.REPEAT, 
-        callback_data=f"{CallbackData.TASK_REPEAT}?{CallbackData.TASK_ID}={task.id}"
-    )
-    keyboard.append([cancel_button, close_button, repeat_button])
+    keyboard.append([cancel_button, close_button])
     markup = InlineKeyboardMarkup(keyboard)
     return markup
 
