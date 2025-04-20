@@ -350,22 +350,44 @@ class ResponseInline(admin.TabularInline):
 ##############################
 @admin.register(Task)
 class TaskAdmin(admin.ModelAdmin):
-    #TAGS
-    list_display = ('id',
-                    'random_task_number',
-                    'title', 
-                    #'tag', 
-                    'creator', 
-                    'stage', 
-                    'created_at', 
-                    'get_sent_messages')
-    list_filter = ('stage', 
-                   #'tag', 
-                   'creator',
-                   )
-    search_fields = ('title', 'description')
-    readonly_fields = ('random_task_number', 'get_sent_messages')
+    list_display = (
+        'id',
+        'random_number_display',
+        'title',
+        'creator',
+        'stage',
+        'created_at',
+    )
+    list_filter = ('stage', 'creator')
+    search_fields = ('title', 'description')  # поиск по тексту
+    readonly_fields = ('random_number_display',)
     inlines = [FilesInline, ResponseInline]
+
+    def random_number_display(self, obj):
+        # берём номер из random_number_list по pk и форматируем
+        num = random_number_list.get(obj.pk, None)
+        if num is None:
+            return "-"
+        return f"{num:0{Constants.NUMBER_LENGTH}}"
+    random_number_display.short_description = "Случайный номер"
+    random_number_display.admin_order_field = 'id'
+
+    def get_search_results(self, request, queryset, search_term):
+        """
+        Расширяем поиск: если search_term — это цифры нужной длины,
+        пробуем найти задачи по нашему «случайному номеру».
+        """
+        queryset, use_distinct = super().get_search_results(request, queryset, search_term)
+
+        if search_term.isdigit() and len(search_term) == Constants.NUMBER_LENGTH:
+            matching_pks = [
+                pk for pk, num in random_number_list.items()
+                if f"{num:0{Constants.NUMBER_LENGTH}}" == search_term
+            ]
+            if matching_pks:
+                queryset |= self.model.objects.filter(pk__in=matching_pks)
+
+        return queryset, use_distinct
 
     def get_sent_messages(self, obj):
         return ", ".join(f"{sm.message_id} ({sm.telegram_user})" for sm in obj.sent_messages.all())
