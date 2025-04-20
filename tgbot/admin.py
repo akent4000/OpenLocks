@@ -362,7 +362,7 @@ class TaskAdmin(admin.ModelAdmin):
         'created_at',
         'get_sent_messages',
     )
-    search_fields = ('title', 'description')  # оставляем здесь
+    search_fields = ('title', 'description', 'random_task_number')  # оставляем здесь
     readonly_fields = ('random_task_number', 'get_sent_messages')
     # …
 
