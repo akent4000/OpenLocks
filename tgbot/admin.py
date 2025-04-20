@@ -365,7 +365,7 @@ class TaskAdmin(admin.ModelAdmin):
 
     def random_number_display(self, obj):
         # берём номер из random_number_list по pk и форматируем
-        num = random_number_list.get(obj.pk, None)
+        num = random_number_list.get(obj.id)
         if num is None:
             return "-"
         return f"{num:0{Constants.NUMBER_LENGTH}}"
