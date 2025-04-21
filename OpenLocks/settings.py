@@ -28,7 +28,7 @@ SECRET_KEY = os.getenv('DJANGO_SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["localhost", "openlocks.testdomain.su"]
+ALLOWED_HOSTS = ["localhost", "openlocks.silkgroup.su"]
 
 USE_I18N = True
 LANGUAGE_CODE = 'ru'
@@ -38,7 +38,7 @@ USE_TZ = True
 CSRF_COOKIE_SECURE = True
 SESSION_COOKIE_SECURE = True
 CSRF_TRUSTED_ORIGINS = [
-    "https://openlocks.testdomain.su"
+    "https://openlocks.silkgroup.su"
 ]
 
 STATIC_URL = '/static/'
