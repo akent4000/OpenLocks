@@ -92,6 +92,9 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'OpenLocks.wsgi.application'
 
+CSP_DEFAULT_SRC = ("'self'",)
+CSP_SCRIPT_SRC  = ("'self'",)
+CSP_STYLE_SRC   = ("'self'",)
 
 # Database
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
