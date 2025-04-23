@@ -181,6 +181,19 @@ def configuration_pre_save(sender, instance, **kwargs):
         except Configuration.DoesNotExist:
             instance._old_test_mode = None
 
+def _restart_service():
+    # выполняем systemctl restart bot
+    try:
+        subprocess.run(
+            ['sudo', 'systemctl', 'restart', 'bot'],
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+    except Exception as e:
+        # здесь можно залогировать неудачу, если нужно
+        logger.error("Failed to restart service 'bot':", e)
+
 @receiver(post_save, sender=Configuration)
 def configuration_post_save(sender, instance, created, **kwargs):
     old = getattr(instance, '_old_test_mode', None)
@@ -189,19 +202,6 @@ def configuration_post_save(sender, instance, created, **kwargs):
     # если тестовый режим не менялся — выходим
     if not (created or (old is not None and old != new)):
         return
-
-    def _restart_service():
-        # выполняем systemctl restart bot
-        try:
-            subprocess.run(
-                ['sudo', 'systemctl', 'restart', 'bot'],
-                check=True,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE,
-            )
-        except Exception as e:
-            # здесь можно залогировать неудачу, если нужно
-            print("Failed to restart service 'bot':", e)
 
     # откладываем рестарт до конца транзакции и отдачи ответа
     def _deferred():
@@ -212,8 +212,8 @@ def configuration_post_save(sender, instance, created, **kwargs):
 
 @receiver(post_save, sender=TelegramBotToken)
 def tgbot_token_post_save(sender, instance, created, **kwargs):
-    from tgbot.management.commands.startbot import restart_program_exit
-    def _deferred_restart():
-            restart_program_exit()
+    def _deferred():
+        # запускаем в отдельном потоке, чтобы не блокировать процесс Django
+        threading.Thread(target=_restart_service, daemon=True).start()
 
-    transaction.on_commit(lambda: threading.Timer(0.5, _deferred_restart).start())
+    transaction.on_commit(_deferred)
