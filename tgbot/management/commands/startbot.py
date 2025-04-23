@@ -96,17 +96,6 @@ def start_bots():
     _main_thread.start()
     _test_thread.start()
 
-
-def restart_program_exit():
-    """
-    Простой выход с кодом 1 (или любым ненулевым),
-    чтобы внешний supervisor (systemd, supervisor) 
-    сам поднял сервис заново.
-    """
-    # если вызывается в main thread – завершит процесс
-    # если в дочернем – лучше использовать os._exit
-    os._exit(1)
-
 class Command(BaseCommand):
     help = 'Запускает два бота на платформе Telegram'
 
