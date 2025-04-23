@@ -20,49 +20,64 @@ log_filename = Path("logs") / f"{Path(__file__).stem}.log"
 logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
 class SyncBot(TeleBot):
+    def _eat_update(self, update: Update):
+        """
+        Повышает offset (last_update_id), чтобы этот update не возвращался.
+        """
+        try:
+            # TeleBot хранит последний апдейт в last_update_id или _last_update_id
+            self.last_update_id = update.update_id
+        except AttributeError:
+            self._last_update_id = update.update_id
+        logger.debug(f"_eat_update: съеден update {update.update_id}")
+
     def process_new_updates(self, updates: List[Update]):
         """
         Фильтрует и обрабатывает только те обновления, из которых удалось
         безопасно получить данные пользователя и которые не заблокированы.
+        Все пропущенные апдейты «съедаются» методом _eat_update.
         """
         to_handle: List[Update] = []
 
         for update in updates:
-            # 1) Достаем сообщение или callback, пропускаем пустые
+            # 1) Достаем сообщение или callback
             message_or_callback = update.message or update.callback_query
             if message_or_callback is None:
                 logger.debug("Пропущен update без message/callback: %r", update)
+                self._eat_update(update)
                 continue
 
-            # 2) Синхронизация данных пользователя — в try/except, чтобы одна неудача
-            #    не прервала весь цикл
+            # 2) Синхронизация данных пользователя
             try:
                 data = sync_user_data(message_or_callback)
             except Exception as e:
                 logger.exception("Ошибка sync_user_data для update %r: %s", update, e)
+                self._eat_update(update)
                 continue
 
-            # 3) Если пользователь найден, проверяем, не заблокирован ли он
-            if data:
-                user, _ = data
-                try:
-                    # _handle_blocked_user возвращает True, если пользователь заблокирован
-                    if self._handle_blocked_user(update, user):
-                        logger.info("Пользователь %s заблокирован — update пропущен", user.id)
-                        continue
-                except Exception as e:
-                    logger.exception(
-                        "Ошибка при проверке блокировки пользователя %s: %s", user.id, e
-                    )
-                    # Не уверены, безопасно ли обрабатывать этот update дальше — пропустим
+            # 3) Если sync_user_data вернул None (например, групповой чат) — тоже пропускаем
+            if not data:
+                logger.debug("sync_user_data вернул None — пропускаем update %s", update.update_id)
+                self._eat_update(update)
+                continue
+
+            # 4) Проверяем, не заблокирован ли пользователь
+            user, _ = data
+            try:
+                if self._handle_blocked_user(update, user):
+                    # внутри _handle_blocked_user уже съедает апдейт
                     continue
-            else:
+            except Exception as e:
+                logger.exception(
+                    "Ошибка при проверке блокировки пользователя %s: %s", user.id, e
+                )
+                self._eat_update(update)
                 continue
 
-            # 4) Всё прошло успешно — добавляем обновление в список для дальнейшей обработки
+            # 5) Всё успешно — добавляем к обработке
             to_handle.append(update)
 
-        # 5) Передаем в TeleBot только валидные обновления
+        # 6) Передаём оставшиеся апдейты в TeleBot
         if to_handle:
             try:
                 super().process_new_updates(to_handle)
@@ -84,13 +99,10 @@ class SyncBot(TeleBot):
             else:
                 self.answer_callback_query(update.callback_query.id, msg)
 
-            # **ВАЖНО**: вручную повышаем offset, чтобы этот update не вернулся
-            try:
-                self.last_update_id = update.update_id
-            except AttributeError:
-                self._last_update_id = update.update_id
+            # «Съедаем» update прямо здесь
+            self._eat_update(update)
 
-            logger.info(f"_handle_blocked_user: апдейт {update.update_id} съеден (пользователь заблокирован)")
+            logger.info(f"_handle_blocked_user: апдейт {update.update_id} съеден (заблокирован)")
         except Exception as e:
             logger.error(f"_handle_blocked_user: ошибка при обработке заблокированного: {e}")
 
