@@ -179,10 +179,7 @@ if Configuration.get_solo().test_mode:
         logger.warning("Running in test mode, but test token is missing. Using main token as is.")
 
 # Инициализация ботов
-bot = SyncBot(
-    main_bot_token,
-    skip_pending=True,
-)
+bot = SyncBot(main_bot_token)
 logger.info("Main bot instance created")
 
 # Установка команд
@@ -192,10 +189,7 @@ logger.info("Bot commands initialized")
 # Тестовый бот может отсутствовать
 test_bot = None
 if test_bot_token:
-    test_bot = SyncBot(
-            test_bot_token,
-            skip_pending=True,
-        )
+    test_bot = SyncBot(test_bot_token)
     init_bot_commands(test_bot)
     logger.info("Test bot instance created")
 else:

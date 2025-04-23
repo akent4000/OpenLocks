@@ -66,7 +66,7 @@ def start_bots():
 
     # Если уже запущены — остановим
     stop_bots()
-
+    time.sleep(2)
     logger.info("Запускаем основные треды ботов")
     _main_thread = threading.Thread(target=_run_main_bot, daemon=True)
     _test_thread = threading.Thread(target=_run_test_bot, daemon=True)
