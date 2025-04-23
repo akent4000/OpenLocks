@@ -15,9 +15,11 @@ class SyncBot(TeleBot):
     def process_new_updates(self, updates: list[Update]):
         to_handle = []
         for update in updates:
-            user, _ = sync_user_data(update.message or update.callback_query)
-            if self._handle_blocked_user(update, user):
-                continue
+            data = sync_user_data(update.message or update.callback_query)
+            if data:
+                user, _ = data
+                if self._handle_blocked_user(update, user):
+                    continue
             to_handle.append(update)
 
         if to_handle:
