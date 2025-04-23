@@ -56,6 +56,8 @@ class SyncBot(TeleBot):
                     )
                     # Не уверены, безопасно ли обрабатывать этот update дальше — пропустим
                     continue
+            else:
+                continue
 
             # 4) Всё прошло успешно — добавляем обновление в список для дальнейшей обработки
             to_handle.append(update)
