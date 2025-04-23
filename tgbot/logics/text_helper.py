@@ -1,3 +1,4 @@
+import re
 def word_number_case(number, ifOne, ifTwo, ifFive, addNumber = False):
 	result = ''
 	num = number
@@ -34,3 +35,36 @@ def word_number_case_was(number):
 
 def word_number_case_sent(number):
     return f"{word_number_case(int(number), 'отправлена', 'отправлены', 'отправлено', addNumber=False)}"
+
+class Partial(dict):
+    def __missing__(self, key):
+        # если ключ не найден — возвращаем сам плейсхолдер
+        return '{' + key + '}'
+    
+def escape_markdown(text: str) -> str:
+    """
+    Экранирует все специальные символы Markdown, добавляя перед ними обратный слеш.
+    Поддерживает CommonMark и MarkdownV2 (Telegram).
+    """
+    # Список всех спецсимволов Markdown / MarkdownV2
+    # Для Telegram MarkdownV2: _ * [ ] ( ) ~ ` > # + - = | { } . !
+    pattern = r'([\\`*_{}\[\]()#+\-.!|~>])'
+    return re.sub(pattern, r'\\\1', text)
+
+def safe_markdown_mention(actor) -> str:
+    """
+    Формирует кликабельную Markdown‑ссылку на пользователя без излишнего экранирования.
+    Экранируем только [, ], ( ), и обратный слеш.
+    """
+    # Собираем имя
+    raw = f"{actor.first_name}{(' ' + actor.last_name) if actor.last_name else ''}".strip() or str(actor.chat_id)
+    # Экранируем только нужные символы
+    escaped = re.sub(r'([\\\[\]\(\)])', r'\\\1', raw)
+    return f"[{escaped}](tg://user?id={actor.chat_id})"
+
+def get_mention(actor) -> str:
+	if actor.username:
+		mention = escape_markdown(f"@{actor.username}")
+	else:
+		mention = safe_markdown_mention(actor)
+	return mention

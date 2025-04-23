@@ -3,6 +3,7 @@ import re
 from typing import Optional
 
 from tgbot.dispatcher import bot
+from tgbot.logics.text_helper import escape_markdown, get_mention, safe_markdown_mention
 from tgbot.models import *
 from tgbot.logics.constants import *
 from telebot import REPLY_MARKUP_TYPES
@@ -18,28 +19,7 @@ Path("logs").mkdir(parents=True, exist_ok=True)
 log_filename = Path("logs") / f"{Path(__file__).stem}.log"
 logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
-def escape_markdown(text: str) -> str:
-    """
-    Экранирует все специальные символы Markdown, добавляя перед ними обратный слеш.
-    Поддерживает CommonMark и MarkdownV2 (Telegram).
-    """
-    # Список всех спецсимволов Markdown / MarkdownV2
-    # Для Telegram MarkdownV2: _ * [ ] ( ) ~ ` > # + - = | { } . !
-    pattern = r'([\\`*_{}\[\]()#+\-.!|~>])'
-    return re.sub(pattern, r'\\\1', text)
-
-def safe_markdown_mention(actor: TelegramUser) -> str:
-    """
-    Формирует кликабельную Markdown‑ссылку на пользователя без излишнего экранирования.
-    Экранируем только [, ], ( ), и обратный слеш.
-    """
-    # Собираем имя
-    raw = f"{actor.first_name}{(' ' + actor.last_name) if actor.last_name else ''}".strip() or str(actor.chat_id)
-    # Экранируем только нужные символы
-    escaped = re.sub(r'([\\\[\]\(\)])', r'\\\1', raw)
-    return f"[{escaped}](tg://user?id={actor.chat_id})"
-
-def send_mention_notification(
+def send_notification_with_mention_check(
     recipient_chat_id: int,
     actor: TelegramUser,
     text_template: str,
@@ -50,20 +30,11 @@ def send_mention_notification(
     """
     Универсальная отправка упоминания actor с экранированием Markdown и логированием.
     """
-    # 1) Формируем mention и сразу экранируем
-    if actor.username:
-        mention = escape_markdown(f"@{actor.username}")
-    else:
-        mention = safe_markdown_mention(actor)
-
-    # 2) Подставляем в шаблон и экранируем весь текст
-    text = text_template.format(mention=mention)
-
     # 4) Отправка
     try:
         sent = bot.send_message(
             chat_id=recipient_chat_id,
-            text=text,
+            text=text_template,
             parse_mode="Markdown",
             reply_to_message_id=reply_to_message_id,
             reply_markup=reply_markup
@@ -356,12 +327,12 @@ def broadcast_task_to_users(
             # 1) файлы
             first_msg_id = send_task_files(sub, task)
 
-            template =task.master_task_text_with_dispather_mention.format(mention="{mention}",)
+            task_text = task.master_task_text_with_dispather_mention
 
-            text_msg = send_mention_notification(
+            text_msg = send_notification_with_mention_check(
                 recipient_chat_id=sub.chat_id,
                 actor=dispatcher,
-                text_template=template,
+                text_template=task_text,
                 reply_to_message_id=first_msg_id,
                 reply_markup=reply_markup
             )
@@ -385,67 +356,13 @@ def broadcast_task_to_users(
             logger.error(f"Не удалось отправить задачу {task.id} мастеру {sub.chat_id}: {e}")
         time.sleep(0.04)
 
-def edit_mention_notification(
-    recipient: TelegramUser,
-    message: SentMessage,
-    actor: TelegramUser,
-    text_template: str,
-    task: Task,
-    reply_markup: Optional[InlineKeyboardMarkup] = None,
-):
-    """
-    Редактирует ранее отправленное уведомление с упоминанием actor,
-    экранируя Markdown-спецсимволы в тексте.
-    """
-    # 1) Формируем и экранируем mention
-    if actor.username:
-        mention = escape_markdown(f"@{actor.username}")
-    else:
-        mention = safe_markdown_mention(actor)
-
-    text = text_template.format(mention=mention)
-
-    # 3) Пытаемся отредактировать
-    try:
-        bot.edit_message_text(
-            chat_id=recipient.chat_id,
-            message_id=message.message_id,
-            text=text,
-            parse_mode="Markdown",
-            reply_markup=reply_markup
-        )
-        logger.info(f"edit_mention_notification: отредактировано сообщение {message}")
-        return
-    except Exception as e:
-        logger.warning(f"edit_mention_notification: не удалось отредактировать {message}: {e}")
-
-    # 4) Фолбэк: удаляем старое и шлём заново
-    try:
-        bot.delete_message(chat_id=recipient, message_id=message)
-        logger.info(f"edit_mention_notification: удалено старое сообщение {message}")
-    except Exception as e:
-        logger.warning(f"edit_mention_notification: не удалось удалить {message}: {e}")
-
-    new_msg = send_mention_notification(
-        recipient_chat_id=recipient,
-        actor=actor,
-        text_template=text_template,
-        reply_to_message_id=None,
-        callback=None,
-        reply_markup=reply_markup
-    )
-
-
 def edit_master_task_message(
     recipient: TelegramUser,
     task: Task,
     new_text: str,
     new_reply_markup: Optional[InlineKeyboardMarkup] = None,
 ) -> None:
-    """
-    Редактирует последнее сообщение по задаче, вставляя mention диспетчера,
-    и экранирует Markdown-спецсимволы.
-    """
+
     sent: SentMessage = (
         task.sent_messages
             .filter(telegram_user=recipient)
@@ -453,16 +370,63 @@ def edit_master_task_message(
             .last()
     )
     if not sent:
-        logger.error(f"edit_mention_task_message: для задачи {task.id} нет сообщений у {recipient.chat_id}")
+        logger.error(f"edit_master_task_message: для задачи {task.id} нет сообщений у {recipient.chat_id}")
         return
 
+    try:
+        bot.edit_message_text(
+            chat_id=recipient.chat_id,
+            message_id=sent.message_id,
+            text=new_text,
+            parse_mode="Markdown",
+            reply_markup=new_reply_markup
+        )
+        logger.info(f"edit_master_task_message: отредактировано сообщение {sent}")
+        return
+    except Exception as e:
+        logger.warning(f"edit_master_task_message: не удалось отредактировать {sent}: {e}")
 
-    edit_mention_notification(
-        recipient=recipient,
-        message=sent,
+    try:
+        sent.delete()
+        bot.delete_message(chat_id=recipient, message_id=sent.message_id)
+        logger.info(f"edit_master_task_message: удалено старое сообщение {sent}")
+    except Exception as e:
+        logger.warning(f"edit_master_task_message: не удалось удалить {sent}: {e}")
+
+    files = task.files
+    for file in files:
+        msg = file.sent_messages.filter(telegram_user=recipient).order_by("created_at").last()
+        try:
+            bot.delete_message(chat_id=recipient, message_id=msg.message_id)
+            msg.delete()
+            logger.info(f"edit_master_task_message: удалено старое сообщение {msg}")
+        except Exception as e:
+            logger.warning(f"edit_master_task_message: не удалось удалить {msg}: {e}")
+
+    
+    logger.info(f"edit_master_task_message: вызвана edit_master_task_message для сообщения {sent.message_id}")
+
+    first_msg_id = send_task_files(recipient, task)
+
+    text_msg = send_notification_with_mention_check(
+        recipient_chat_id=recipient.chat_id,
         actor=task.creator,
         text_template=new_text,
-        reply_markup=new_reply_markup,
-        task=task
+        reply_to_message_id=first_msg_id,
+        reply_markup=new_reply_markup
     )
-    logger.info(f"edit_mention_task_message: вызвана edit_mention_notification для сообщения {sent.message_id}")
+
+    if text_msg == Constants.USER_MENTION_PROBLEM:
+        logger.error(f"send_mention_notification не удалось создать упоминание пользователя, рассылка прекращена")
+        return
+
+    if text_msg:
+        sent = SentMessage.objects.create(
+            message_id=text_msg.message_id,
+            telegram_user=recipient
+        )
+
+        task.sent_messages.add(sent)
+        task.save()
+
+        logger.info(f"Задача {task.id} заново отправлена мастеру после ошибки {recipient.chat_id}")

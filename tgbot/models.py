@@ -10,11 +10,13 @@ from django.utils import timezone
 from django.core.validators import RegexValidator
 import subprocess
 from solo.models import SingletonModel
-from tgbot.logics.constants import Constants
+from tgbot.logics.constants import Constants, Messages
 from tgbot.logics.random_numbers import random_number_list
 
 from pathlib import Path
 from loguru import logger
+
+from tgbot.logics.text_helper import Partial
 
 # Убедимся, что папка logs существует
 Path("logs").mkdir(parents=True, exist_ok=True)
@@ -237,34 +239,32 @@ class Task(models.Model):
 
     @property
     def dispather_task_text(self):
-        from tgbot.handlers.utils import safe_markdown_mention, escape_markdown
-        from tgbot.models import TelegramUser, Response
+        from tgbot.logics.text_helper import get_mention
         #TAGS
         # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
         # return f"*Заявка №{self.id}:\n{tag_text}* {self.description}\n"
-        text = f"*Ваша заявка №{self.random_task_number}:*\n{self.description}\n"
+        text = Messages.DISPATHER_TASK_TEXT.format(random_task_number=self.random_task_number, description=self.description)
 
         if self.responses.all():
-            text += "\n*Отклики:*\n"
+            text += Messages.RESPONSES
 
         for response in self.responses.all():
             actor = response.telegram_user
-            if actor.username:
-                mention = escape_markdown(f"@{actor.username}")
-            else:
-                mention = safe_markdown_mention(actor)
+            mention = get_mention(actor)
 
-            text_template = f"Мастер {{mention}} хочет забрать заявку {response.payment_type.name}\n"
-            text += text_template.format(mention=mention)
+            text += Messages.MASTER_WANT_TO_PICK_UP_TASK.format(mention=mention, payment_type=response.payment_type.name)
             
         return text
     
     @property
     def master_task_text_with_dispather_mention(self):
+        from tgbot.logics.text_helper import get_mention
         #TAGS
         # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
         # return f"*Заявка №{self.id}:\nДиспетчер: *{{mention}}*\n{tag_text}* {self.description}\n"
-        return f"*Заявка №{self.random_task_number}:\nДиспетчер: *{{mention}}\n{self.description}\n"
+        actor = self.creator
+        mention = get_mention(actor)
+        return Messages.MASTER_TASK_TEXT.format(random_task_number=self.random_task_number, mention=mention, description=self.description)
     
 
     class Meta:

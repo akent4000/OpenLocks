@@ -35,7 +35,7 @@ def get_user_from_call(call: CallbackQuery) -> TelegramUser | None:
         return TelegramUser.get_user_by_chat_id(chat_id=call.message.chat.id)
     except TelegramUser.DoesNotExist:
         logger.error(f"Пользователь {call.message.chat.id} не найден")
-        bot.answer_callback_query(call.id, "Ошибка: пользователь не найден.")
+        bot.answer_callback_query(call.id, Messages.USER_NOT_FOUND_ERROR)
         return None
 
 
@@ -45,7 +45,7 @@ def extract_query_params(call: CallbackQuery) -> dict:
         query_string = call.data.split("?", 1)[1]
         return urllib.parse.parse_qs(query_string)
     except IndexError:
-        bot.answer_callback_query(call.id, "Ошибка: отсутствуют параметры.")
+        bot.answer_callback_query(call.id, Messages.MISSING_PARAMETERS_ERROR)
         return {}
 
 
@@ -58,7 +58,7 @@ def extract_int_param(call: CallbackQuery, params: dict, key: str, error_message
     try:
         return int(param_list[0])
     except ValueError:
-        bot.answer_callback_query(call.id, f"Ошибка: неверное значение для {key}.")
+        bot.answer_callback_query(call.id, Messages.INCORRECT_VALUE_ERROR.format(key=key))
         return None
 
 
@@ -67,7 +67,7 @@ def get_task_from_call(call: CallbackQuery, task_id: int) -> Task | None:
     try:
         return Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
     except Task.DoesNotExist:
-        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
+        bot.answer_callback_query(call.id, Messages.TASK_NOT_FOUND_ERROR)
         return None
 
 #TAGS
@@ -119,7 +119,7 @@ def get_task_for_creator(call: CallbackQuery, task_id: int) -> Task | None:
     try:
         return Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
     except Task.DoesNotExist:
-        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
+        bot.answer_callback_query(call.id, Messages.TASK_NOT_FOUND_ERROR)
         return None
 
 #TAGS
@@ -184,7 +184,7 @@ def handle_task_cancel(call: CallbackQuery):
         return
 
     params = extract_query_params(call)
-    task_id = extract_int_param(call, params, CallbackData.TASK_ID, "Ошибка: отсутствует task_id.")
+    task_id = extract_int_param(call, params, CallbackData.TASK_ID, Messages.MISSING_TASK_ID_ERROR)
     if task_id is None:
         return
 
@@ -201,7 +201,7 @@ def handle_task_cancel(call: CallbackQuery):
     # Заявка и файлы (Files) будут удалены каскадно
     task.delete()
 
-    bot.answer_callback_query(call.id, "Заявка отменена.")
+    bot.answer_callback_query(call.id, Messages.TASK_CANCELED)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_CLOSE}?"))
@@ -217,7 +217,7 @@ def handle_task_close(call: CallbackQuery):
         return
 
     params = extract_query_params(call)
-    task_id = extract_int_param(call, params, CallbackData.TASK_ID, "Ошибка: отсутствует task_id.")
+    task_id = extract_int_param(call, params, CallbackData.TASK_ID, Messages.MISSING_TASK_ID_ERROR)
     if task_id is None:
         return
 
@@ -231,9 +231,9 @@ def handle_task_close(call: CallbackQuery):
 
     # 2) Готовим тексты
     # для диспетчера — без упоминаний
-    dispatcher_text = f"*Заявка закрыта*\n\n{task.dispather_task_text}"
+    dispatcher_text = Messages.TASK_CLOSED_TASK_TEXT.format(task_text=task.dispather_task_text)
     # для мастеров — шаблон с {mention}
-    master_template = f"*Заявка закрыта*\n\n{task.master_task_text_with_dispather_mention}"
+    master_template = Messages.TASK_CLOSED_TASK_TEXT.format(task_text=task.master_task_text_with_dispather_mention)
 
     edit_task_message(
         recipient=task.creator,
@@ -253,7 +253,7 @@ def handle_task_close(call: CallbackQuery):
             new_reply_markup=None
         )
 
-    bot.answer_callback_query(call.id, "Заявка закрыта.")
+    bot.answer_callback_query(call.id, Messages.TASK_CLOSED)
 
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_REPEAT}?"))
@@ -269,7 +269,7 @@ def handle_task_repeat(call: CallbackQuery):
         return
 
     params = extract_query_params(call)
-    task_id = extract_int_param(call, params, CallbackData.TASK_ID, "Ошибка: отсутствует task_id.")
+    task_id = extract_int_param(call, params, CallbackData.TASK_ID, Messages.MISSING_TASK_ID_ERROR)
     if task_id is None:
         return
 
@@ -286,7 +286,7 @@ def handle_task_repeat(call: CallbackQuery):
     send_task_message(
         recipient=user, 
         task=task,
-        text=f"*Заявка выложена повторно*:\n{task.dispather_task_text}",
+        text=Messages.TASK_REPEATED_TASK_TEXT.format(task_text=task.dispather_task_text),
         reply_to_message_id=task.creator_message_id_to_reply,
         reply_markup=dispather_task_keyboard(task=task),
     )
@@ -296,7 +296,7 @@ def handle_task_repeat(call: CallbackQuery):
         reply_markup=payment_types_keyboard(task)
     )
 
-    bot.answer_callback_query(call.id, "Заявка выложена повторно.")
+    bot.answer_callback_query(call.id, Messages.TASK_REPEATED)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.PAYMENT_SELECT}?"))
 def handle_payment_select(call: CallbackQuery):
@@ -311,8 +311,8 @@ def handle_payment_select(call: CallbackQuery):
 
     # 2. Извлекаем payment_id и task_id
     params = extract_query_params(call)
-    payment_id = extract_int_param(call, params, CallbackData.PAYMENT_ID, "Ошибка: отсутствует payment_id.")
-    task_id    = extract_int_param(call, params, CallbackData.TASK_ID,    "Ошибка: отсутствует task_id.")
+    payment_id = extract_int_param(call, params, CallbackData.PAYMENT_ID, Messages.MISSING_PAYMENT_ID_ERROR)
+    task_id    = extract_int_param(call, params, CallbackData.TASK_ID, Messages.MISSING_TASK_ID_ERROR)
     if payment_id is None or task_id is None:
         return
 
@@ -320,13 +320,13 @@ def handle_payment_select(call: CallbackQuery):
     try:
         payment_type = PaymentTypeModel.objects.get(id=payment_id)
     except PaymentTypeModel.DoesNotExist:
-        bot.answer_callback_query(call.id, "Ошибка: выбранный тип оплаты не найден.")
+        bot.answer_callback_query(call.id, Messages.PAYMENT_NOT_FOUND_ERROR)
         return
 
     try:
         task = Task.objects.get(id=task_id)
     except Task.DoesNotExist:
-        bot.answer_callback_query(call.id, "Ошибка: заявка не найдена.")
+        bot.answer_callback_query(call.id, Messages.TASK_NOT_FOUND_ERROR)
         return
 
     last_disp = (
@@ -352,11 +352,11 @@ def handle_payment_select(call: CallbackQuery):
         edit_master_task_message(
             recipient=master,
             task=task,
-            new_text=f"*Ваш отклик отправлен*\n\n{task.master_task_text_with_dispather_mention}",
+            new_text=Messages.RESPONSE_SENT_TASK_TEXT.format(task_text=task.master_task_text_with_dispather_mention),
             new_reply_markup=master_response_cancel_keyboard(response=response)
         )
 
-        bot.answer_callback_query(call.id, "Ваш отклик отправлен")
+        bot.answer_callback_query(call.id, Messages.RESPONSE_SENT)
     # reply_to = last_disp.message_id if last_disp else None
 
     # # 5. Формируем шаблон текста с placeholder {mention}
@@ -408,14 +408,14 @@ def handle_response_cancel(call: CallbackQuery):
          и новую клавиатуру (payment_types_keyboard) для повторного выбора типа оплаты.
     """
     params = extract_query_params(call)
-    response_id = extract_int_param(call, params, CallbackData.RESPONSE_ID, "Ошибка: отсутствует response_id.")
+    response_id = extract_int_param(call, params, CallbackData.RESPONSE_ID, Messages.MISSING_RESPONSE_ID_ERROR)
     if response_id is None:
         return
 
     try:
         response_obj = Response.objects.get(id=response_id)
     except Response.DoesNotExist:
-        bot.answer_callback_query(call.id, "Ошибка: отклик не найден.")
+        bot.answer_callback_query(call.id, Messages.RESPONSE_NOT_FOUND_ERROR)
         return
 
     master = response_obj.telegram_user
@@ -436,11 +436,11 @@ def handle_response_cancel(call: CallbackQuery):
     edit_master_task_message(
         recipient=master,
         task=task,
-        new_text=f"*Ваш отклик удалён*\n\n{task.master_task_text_with_dispather_mention}",
+        new_text=Messages.RESPONSE_CANCELED_TASK_TEXT.format(task_text=task.master_task_text_with_dispather_mention),
         new_reply_markup=payment_types_keyboard(task=task)
     )
 
-    bot.answer_callback_query(call.id, "Ваш отклик удалён.")
+    bot.answer_callback_query(call.id, Messages.RESPONSE_CANCELED)
 
 #TAGS
 # @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TAG_TOGGLE}?"))

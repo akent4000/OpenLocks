@@ -41,14 +41,14 @@ def handle_rules(message: Message):
         parse_mode="Markdown"
     )
 
-@bot.message_handler(commands=[Commands.CHAT])
+@bot.message_handler(commands=[Commands.GENERAL_CHAT])
 def handle_chat(message: Message):
     """
     Отправляет пользователю ссылку на общий чат.
     """
     bot.send_message(
         chat_id=message.chat.id,
-        text=f"Общий чат: {Urls.GENERAL_CHAT}",
+        text=Messages.GENERAL_CHAT,
         parse_mode="Markdown"
 
     )
@@ -58,12 +58,9 @@ def handle_admin(message: Message):
     """
     Информирует пользователя о времени ответа админа и даёт ссылку на поддержку.
     """
-    text = (
-        f"Админ может ответить в течение нескольких часов.'\n[Админ]({Urls.SUPPORT})"
-    )
     bot.send_message(
         chat_id=message.chat.id,
-        text=text,
+        text=Messages.ADMIN,
         parse_mode="Markdown"
     )
 

@@ -18,7 +18,7 @@ class CallbackData:
 class Commands:
     START = "start"
     RULES = "rules"
-    CHAT = "chat"
+    GENERAL_CHAT = "chat"
     ADMIN = "admin"
     TODAY = "today"
 
@@ -42,6 +42,22 @@ class Messages:
     WELCOME_MESSAGE = f"Для добавления напишите [Администратору]({Urls.SUPPORT})\nПосле добавления введите /start"
     CHAT_ACTIVE_MESSAGE = "Чат активен, вы можете принимать и отправлять заявки, приятного пользования"
     
+    DISPATHER_TASK_TEXT = "*Ваша заявка №{random_task_number}:*\n{description}\n"
+    RESPONSES = "\n*Отклики:*\n"
+    MASTER_WANT_TO_PICK_UP_TASK = "Мастер {mention} хочет забрать заявку {payment_type}\n"
+
+    MASTER_TASK_TEXT = "*Заявка №{random_task_number}:\nДиспетчер:* {mention}\n{description}\n"
+
+    TASK_CANCELED = "Заявка отменена."
+    TASK_CLOSED = "Заявка закрыта."
+    TASK_CLOSED_TASK_TEXT = "*Заявка закрыта*\n\n{task_text}"
+    TASK_REPEATED = "Заявка выложена повторно."
+    TASK_REPEATED_TASK_TEXT = "*Заявка выложена повторно*:\n{task_text}"
+    RESPONSE_SENT = "Ваш отклик отправлен"
+    RESPONSE_SENT_TASK_TEXT = "*Ваш отклик отправлен*\n\n{task_text}"
+    RESPONSE_CANCELED = "Ваш отклик удалён."
+    RESPONSE_CANCELED_TASK_TEXT = "*Ваш отклик удалён*\n\n{task_text}"
+
     USER_CANT_PUBLISH_TASKS = f"❗️ У вас пока нет доступа к публикации, редактированию или отклику на заявки.\nЧтобы получить права, обратитесь к [Администратору]({Urls.SUPPORT})"
     USER_IS_NO_REGISTERED = "❗️ Вы не зарегистрированы в системе. Пожалуйста, отправьте команду /start для начала работы."
     TASK_TEXT_IS_TOO_SHORT = f"❗️ Заявка не создана: текст слишком короткий (минимум {Constants.MIN_TEXT_LENGTH} символов)."
@@ -51,13 +67,25 @@ class Messages:
     USER_MENTION_PROBLEM = """⚠️ Не удалось создать упоминание вашим именем.
 Пожалуйста, включите пересылку сообщений от бота:
 Настройки → Конфиденциальность → Пересылка сообщений"""
+    USER_BLOCKED = "❌ Вы заблокированы и не можете пользоваться ботом."
 
     RULES = f"[Правила использования]({Urls.RULES})"
+    GENERAL_CHAT = f"[Общий чат]({Urls.GENERAL_CHAT})"
+    ADMIN = f"Админ может ответить в течение нескольких часов.\n[Админ]({Urls.SUPPORT})"
 
+    USER_NOT_FOUND_ERROR = "Ошибка: пользователь не найден."
+    MISSING_PARAMETERS_ERROR = "Ошибка: отсутствуют параметры."
+    INCORRECT_VALUE_ERROR = "Ошибка: неверное значение для {key}."
+    TASK_NOT_FOUND_ERROR = "Ошибка: заявка не найдена."
+    MISSING_TASK_ID_ERROR = "Ошибка: отсутствует task_id."
+    MISSING_PAYMENT_ID_ERROR = "Ошибка: отсутствует payment_id."
+    PAYMENT_NOT_FOUND_ERROR = "Ошибка: выбранный тип оплаты не найден."
+    MISSING_RESPONSE_ID_ERROR = "Ошибка: отсутствует response_id."
+    RESPONSE_NOT_FOUND_ERROR = "Ошибка: отклик не найден."
 
 class CommandsNames:
     START = "Старт бота и проверка доступа к публикации заданий"
     RULES = "Правила использования"
-    CHAT = "Общий чат"
+    GENERAL_CHAT = "Общий чат"
     ADMIN = "Контакт администратора"
     TODAY = "Заявки за день"

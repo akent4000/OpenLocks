@@ -18,7 +18,7 @@ def init_bot_commands(bot):
     commands = [
         types.BotCommand(Commands.START, CommandsNames.START),
         types.BotCommand(Commands.RULES, CommandsNames.RULES),
-        types.BotCommand(Commands.CHAT,  CommandsNames.CHAT),
+        types.BotCommand(Commands.GENERAL_CHAT,  CommandsNames.GENERAL_CHAT),
         types.BotCommand(Commands.ADMIN, CommandsNames.ADMIN),
         types.BotCommand(Commands.TODAY, CommandsNames.TODAY),
         #TAGS

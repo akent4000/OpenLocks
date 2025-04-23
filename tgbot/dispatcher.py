@@ -1,4 +1,5 @@
 import telebot
+from tgbot.logics.constants import Messages
 from tgbot.models import Configuration, TelegramBotToken
 from tgbot.logics.commands import init_bot_commands
 from typing import List
@@ -88,7 +89,7 @@ class SyncBot(TeleBot):
         if not user or not user.blocked:
             return False
 
-        msg = "❌ Вы заблокированы и не можете пользоваться ботом."
+        msg = Messages.USER_BLOCKED
         try:
             if update.message:
                 self.send_message(
