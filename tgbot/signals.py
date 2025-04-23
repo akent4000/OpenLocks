@@ -196,6 +196,6 @@ def configuration_post_save(sender, instance, created, **kwargs):
         restart_bots()
 
 @receiver(post_save, sender=TelegramBotToken)
-def configuration_post_save(sender, instance, created, **kwargs):
+def tgbot_token_post_save(sender, instance, created, **kwargs):
     from tgbot.management.commands.startbot import restart_bots
     restart_bots()
