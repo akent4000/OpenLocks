@@ -1,8 +1,7 @@
 import telebot
 from tgbot.models import Configuration, TelegramBotToken
-from loguru import logger
 from tgbot.logics.commands import init_bot_commands
-
+from typing import List
 from telebot import TeleBot
 from telebot.types import Update, Message, CallbackQuery
 from telebot.apihelper import ApiException
@@ -10,20 +9,63 @@ from telebot.apihelper import ApiException
 from tgbot.handlers.user_helper import sync_user_data
 from tgbot.logics.random_numbers import RandomNumberList
 
+from pathlib import Path
+from loguru import logger
+
+# Убедимся, что папка logs существует
+Path("logs").mkdir(parents=True, exist_ok=True)
+
+# Лог-файл будет называться так же, как модуль, например user_helper.py → logs/user_helper.log
+log_filename = Path("logs") / f"{Path(__file__).stem}.log"
+logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
 class SyncBot(TeleBot):
-    def process_new_updates(self, updates: list[Update]):
-        to_handle = []
+    def process_new_updates(self, updates: List[Update]):
+        """
+        Фильтрует и обрабатывает только те обновления, из которых удалось
+        безопасно получить данные пользователя и которые не заблокированы.
+        """
+        to_handle: List[Update] = []
+
         for update in updates:
-            data = sync_user_data(update.message or update.callback_query)
+            # 1) Достаем сообщение или callback, пропускаем пустые
+            message_or_callback = update.message or update.callback_query
+            if message_or_callback is None:
+                logger.debug("Пропущен update без message/callback: %r", update)
+                continue
+
+            # 2) Синхронизация данных пользователя — в try/except, чтобы одна неудача
+            #    не прервала весь цикл
+            try:
+                data = sync_user_data(message_or_callback)
+            except Exception as e:
+                logger.exception("Ошибка sync_user_data для update %r: %s", update, e)
+                continue
+
+            # 3) Если пользователь найден, проверяем, не заблокирован ли он
             if data:
                 user, _ = data
-                if self._handle_blocked_user(update, user):
+                try:
+                    # _handle_blocked_user возвращает True, если пользователь заблокирован
+                    if self._handle_blocked_user(update, user):
+                        logger.info("Пользователь %s заблокирован — update пропущен", user.id)
+                        continue
+                except Exception as e:
+                    logger.exception(
+                        "Ошибка при проверке блокировки пользователя %s: %s", user.id, e
+                    )
+                    # Не уверены, безопасно ли обрабатывать этот update дальше — пропустим
                     continue
+
+            # 4) Всё прошло успешно — добавляем обновление в список для дальнейшей обработки
             to_handle.append(update)
 
+        # 5) Передаем в TeleBot только валидные обновления
         if to_handle:
-            super().process_new_updates(to_handle)
+            try:
+                super().process_new_updates(to_handle)
+            except Exception as e:
+                logger.exception("Ошибка super().process_new_updates: %s", e)
 
     def _handle_blocked_user(self, update: Update, user) -> bool:
         if not user or not user.blocked:

@@ -3,13 +3,20 @@
 import threading
 import time
 from django.core.management.base import BaseCommand
-from loguru import logger
 from tgbot import dispatcher
 from tgbot.models import Configuration
 import traceback
 from tgbot.logics.info_for_admins import send_messege_to_admins
 
-logger.add("logs/startbot.log", rotation="10 MB", level="INFO")
+from pathlib import Path
+from loguru import logger
+
+# Убедимся, что папка logs существует
+Path("logs").mkdir(parents=True, exist_ok=True)
+
+# Лог-файл будет называться так же, как модуль, например user_helper.py → logs/user_helper.log
+log_filename = Path("logs") / f"{Path(__file__).stem}.log"
+logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
 class Command(BaseCommand):
     help = 'Запускает два бота на платформе Telegram'

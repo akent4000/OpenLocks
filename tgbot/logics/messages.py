@@ -1,13 +1,22 @@
 import time
 import re
 from typing import Optional
-from loguru import logger
 
 from tgbot.dispatcher import bot
 from tgbot.models import *
 from tgbot.logics.constants import *
 from telebot import REPLY_MARKUP_TYPES
 from telebot.types import InputMediaPhoto, InputMediaVideo, MessageEntity, CallbackQuery, InlineKeyboardMarkup
+
+from pathlib import Path
+from loguru import logger
+
+# Убедимся, что папка logs существует
+Path("logs").mkdir(parents=True, exist_ok=True)
+
+# Лог-файл будет называться так же, как модуль, например user_helper.py → logs/user_helper.log
+log_filename = Path("logs") / f"{Path(__file__).stem}.log"
+logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
 def escape_markdown(text: str) -> str:
     """

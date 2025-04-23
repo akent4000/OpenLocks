@@ -1,8 +1,4 @@
-from loguru import logger
-
 from tgbot.logics.text_helper import *
-logger.add("logs/commands.log", rotation="10 MB", level="INFO")
-
 import datetime
 from django.utils import timezone
 from telebot.types import Message
@@ -12,6 +8,16 @@ from tgbot.logics.messages import *
 from tgbot.logics.constants import *
 from tgbot.logics.keyboards import *
 from tgbot.handlers.user_helper import *
+
+from pathlib import Path
+from loguru import logger
+
+# Убедимся, что папка logs существует
+Path("logs").mkdir(parents=True, exist_ok=True)
+
+# Лог-файл будет называться так же, как модуль, например user_helper.py → logs/user_helper.log
+log_filename = Path("logs") / f"{Path(__file__).stem}.log"
+logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
 @bot.message_handler(commands=[Commands.START])
 def handle_start(message: Message):

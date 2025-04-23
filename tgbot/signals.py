@@ -8,8 +8,15 @@ from tgbot.models import *
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 import threading
 
+from pathlib import Path
 from loguru import logger
-logger.add("logs/signals.log", rotation="10 MB", level="INFO")
+
+# Убедимся, что папка logs существует
+Path("logs").mkdir(parents=True, exist_ok=True)
+
+# Лог-файл будет называться так же, как модуль, например user_helper.py → logs/user_helper.log
+log_filename = Path("logs") / f"{Path(__file__).stem}.log"
+logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
 @receiver(pre_save, sender=Server)
 def server_pre_save(sender, instance, **kwargs):

@@ -13,10 +13,15 @@ from solo.models import SingletonModel
 from tgbot.logics.constants import Constants
 from tgbot.logics.random_numbers import random_number_list
 
-
+from pathlib import Path
 from loguru import logger
-logger.add("logs/models.log", rotation="10 MB", level="INFO")
 
+# Убедимся, что папка logs существует
+Path("logs").mkdir(parents=True, exist_ok=True)
+
+# Лог-файл будет называться так же, как модуль, например user_helper.py → logs/user_helper.log
+log_filename = Path("logs") / f"{Path(__file__).stem}.log"
+logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
 class Configuration(SingletonModel):
     """
