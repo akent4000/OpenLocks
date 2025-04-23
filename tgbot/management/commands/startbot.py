@@ -99,8 +99,7 @@ def start_bots():
 
 def restart_program():
     """Полный рестарт текущего процесса (exec)."""
-    python = sys.executable
-    os.execv(python, [python] + sys.argv)
+    sys.exit(1)
 
 def schedule_restart(delay_seconds: float):
     """
