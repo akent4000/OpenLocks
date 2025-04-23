@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import sys
 import threading
 import time
 import traceback
@@ -155,7 +156,7 @@ def stop_bots(join_timeout: float = 5.0):
 def restart_bots():
     """Перезапустить ботов извне"""
     logger.info("Перезапуск ботов извне")
-    start_bots()
+    sys.exit(1)
 
 
 class Command(BaseCommand):
