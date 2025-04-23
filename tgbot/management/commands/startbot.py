@@ -97,24 +97,15 @@ def start_bots():
     _test_thread.start()
 
 
-def restart_program():
-    """Полный рестарт текущего процесса (exec)."""
-    sys.exit(1)
-
-def schedule_restart(delay_seconds: float):
+def restart_program_exit():
     """
-    Запланировать рестарт через delay_seconds секунд.
-    Если full_restart=True — будет перезапущен весь процесс (exec);
-    иначе — просто перезапустятся боты (restart_bots).
+    Простой выход с кодом 1 (или любым ненулевым),
+    чтобы внешний supervisor (systemd, supervisor) 
+    сам поднял сервис заново.
     """
-    def _do_restart():
-        restart_program()
-
-    timer = threading.Timer(delay_seconds, _do_restart)
-    timer.daemon = True  # не блокирует выход из программы
-    timer.start()
-    return timer
-
+    # если вызывается в main thread – завершит процесс
+    # если в дочернем – лучше использовать os._exit
+    os._exit(1)
 
 class Command(BaseCommand):
     help = 'Запускает два бота на платформе Telegram'

@@ -2,6 +2,7 @@ import os
 from decimal import Decimal
 
 from django.db.models.signals import *
+from django.db import transaction
 from django.dispatch import receiver
 
 from tgbot.models import *
@@ -182,7 +183,7 @@ def configuration_pre_save(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Configuration)
 def configuration_post_save(sender, instance, created, **kwargs):
-    from tgbot.management.commands.startbot import schedule_restart
+    from tgbot.management.commands.startbot import restart_program_exit
     """
     После сохранения проверяем:
     - если это новая запись (created=True) — можно сразу рестартовать
@@ -193,9 +194,16 @@ def configuration_post_save(sender, instance, created, **kwargs):
 
     # Если только что создана запись, или test_mode действительно изменился
     if created or (old is not None and old != new):
-        schedule_restart(3)
+        def _deferred_restart():
+            restart_program_exit()
+
+        # запускаем после коммита (чтобы работать в транзакции)
+        transaction.on_commit(lambda: threading.Timer(0.5, _deferred_restart).start())
 
 @receiver(post_save, sender=TelegramBotToken)
 def tgbot_token_post_save(sender, instance, created, **kwargs):
-    from tgbot.management.commands.startbot import schedule_restart
-    schedule_restart(3)
+    from tgbot.management.commands.startbot import restart_program_exit
+    def _deferred_restart():
+            restart_program_exit()
+
+    transaction.on_commit(lambda: threading.Timer(0.5, _deferred_restart).start())
