@@ -182,7 +182,7 @@ def configuration_pre_save(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Configuration)
 def configuration_post_save(sender, instance, created, **kwargs):
-    from tgbot.management.commands.startbot import restart_bots
+    from tgbot.management.commands.startbot import schedule_restart
     """
     После сохранения проверяем:
     - если это новая запись (created=True) — можно сразу рестартовать
@@ -193,9 +193,9 @@ def configuration_post_save(sender, instance, created, **kwargs):
 
     # Если только что создана запись, или test_mode действительно изменился
     if created or (old is not None and old != new):
-        restart_bots()
+        schedule_restart(3)
 
 @receiver(post_save, sender=TelegramBotToken)
 def tgbot_token_post_save(sender, instance, created, **kwargs):
-    from tgbot.management.commands.startbot import restart_bots
-    restart_bots()
+    from tgbot.management.commands.startbot import schedule_restart
+    schedule_restart(3)

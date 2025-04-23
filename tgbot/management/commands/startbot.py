@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import os
 import sys
 import threading
 import time
@@ -17,33 +18,14 @@ Path("logs").mkdir(parents=True, exist_ok=True)
 log_filename = Path("logs") / f"{Path(__file__).stem}.log"
 logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
-# Флаги и потоки
-_stop_event = threading.Event()
 _main_thread = None
 _test_thread = None
-
-
-def _flush_updates(bot):
-    """
-    Сбрасывает все накопившиеся pending updates у бота.
-    """
-    try:
-        pending = bot.get_updates()
-        if pending:
-            last_id = pending[-1].update_id
-            bot.get_updates(offset=last_id + 1)
-    except Exception as e:
-        logger.warning(f"Не удалось сбросить очередь апдейтов: {e}")
-
 
 def _run_main_bot():
     """Цикл polling для основного бота"""
     from tgbot.handlers import commands, message_handler, utils  # noqa: F401
 
-    # Сброс порядка апдейтов
-    _flush_updates(dispatcher.bot)
-
-    while not _stop_event.is_set():
+    while True:
         try:
             logger.info('Основной бот polling запущен')
             dispatcher.bot.polling(
@@ -58,12 +40,9 @@ def _run_main_bot():
                 f"Ошибка в основном боте: {e}\n{traceback.format_exc()}\n\nБот перезапущен"
             )
             dispatcher.bot.stop_polling()
-            if _stop_event.is_set():
-                break
             time.sleep(1)
             logger.info("Перезапуск основного бота...")
         else:
-            # polling завершился без исключения
             break
 
     logger.info("Поток основного бота завершён")
@@ -75,10 +54,7 @@ def _run_test_bot():
         logger.warning("Тестовый бот не инициализирован, поток завершён")
         return
 
-    # Сброс апдейтов
-    _flush_updates(dispatcher.test_bot)
-
-    while not _stop_event.is_set():
+    while True:
         try:
             if Configuration.get_solo().test_mode:
                 logger.info('Тестовый бот polling запущен')
@@ -102,12 +78,9 @@ def _run_test_bot():
         except Exception as e:
             logger.error(f"Ошибка в тестовом боте: {e}\n{traceback.format_exc()}")
             dispatcher.test_bot.stop_polling()
-            if _stop_event.is_set():
-                break
             time.sleep(1)
             logger.info("Перезапуск тестового бота...")
         else:
-            # polling завершился без исключения
             break
 
     logger.info("Поток тестового бота завершён")
@@ -117,9 +90,6 @@ def start_bots():
     """Запустить или перезапустить оба бота"""
     global _main_thread, _test_thread
 
-    stop_bots()
-    _stop_event.clear()
-
     logger.info("Запуск потоков ботов")
     _main_thread = threading.Thread(target=_run_main_bot, daemon=True)
     _test_thread = threading.Thread(target=_run_test_bot, daemon=True)
@@ -127,36 +97,24 @@ def start_bots():
     _test_thread.start()
 
 
-def stop_bots(join_timeout: float = 5.0):
-    """Остановить оба бота и дождаться завершения потоков"""
-    global _main_thread, _test_thread
+def restart_program():
+    """Полный рестарт текущего процесса (exec)."""
+    python = sys.executable
+    os.execv(python, [python] + sys.argv)
 
-    logger.info("Остановка ботов...")
-    _stop_event.set()
+def schedule_restart(delay_seconds: float):
+    """
+    Запланировать рестарт через delay_seconds секунд.
+    Если full_restart=True — будет перезапущен весь процесс (exec);
+    иначе — просто перезапустятся боты (restart_bots).
+    """
+    def _do_restart():
+        restart_program()
 
-    try:
-        dispatcher.bot.stop_polling()
-    except Exception:
-        pass
-
-    if dispatcher.test_bot:
-        try:
-            dispatcher.test_bot.stop_polling()
-        except Exception:
-            pass
-
-    if _main_thread and _main_thread.is_alive():
-        _main_thread.join(join_timeout)
-    if _test_thread and _test_thread.is_alive():
-        _test_thread.join(join_timeout)
-
-    logger.info("Боты остановлены")
-
-
-def restart_bots():
-    """Перезапустить ботов извне"""
-    logger.info("Перезапуск ботов извне")
-    sys.exit(1)
+    timer = threading.Timer(delay_seconds, _do_restart)
+    timer.daemon = True  # не блокирует выход из программы
+    timer.start()
+    return timer
 
 
 class Command(BaseCommand):
