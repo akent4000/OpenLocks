@@ -37,7 +37,8 @@ def handle_rules(message: Message):
     """
     bot.send_message(
         chat_id=message.chat.id,
-        text=f"Правила использования: {Urls.RULES}"
+        text=Messages.RULES,
+        parse_mode="Markdown"
     )
 
 @bot.message_handler(commands=[Commands.CHAT])
@@ -47,7 +48,9 @@ def handle_chat(message: Message):
     """
     bot.send_message(
         chat_id=message.chat.id,
-        text=f"Общий чат: {Urls.GENERAL_CHAT}"
+        text=f"Общий чат: {Urls.GENERAL_CHAT}",
+        parse_mode="Markdown"
+
     )
 
 @bot.message_handler(commands=[Commands.ADMIN])

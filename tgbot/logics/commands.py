@@ -1,5 +1,5 @@
 from telebot import types
-from tgbot.logics.constants import Commands
+from tgbot.logics.constants import Commands, CommandsNames
 
 from pathlib import Path
 from loguru import logger
@@ -16,11 +16,11 @@ def init_bot_commands(bot):
     Устанавливает команды бота для всех пользователей.
     """
     commands = [
-        types.BotCommand(Commands.START, "Старт бота и проверка доступа к публикации заданий"),
-        types.BotCommand(Commands.RULES, "Правила использования"),
-        types.BotCommand(Commands.CHAT, "Общий чат"),
-        types.BotCommand(Commands.ADMIN, "Контакт администратора"),
-        types.BotCommand(Commands.TODAY, "Заявки за день"),
+        types.BotCommand(Commands.START, CommandsNames.START),
+        types.BotCommand(Commands.RULES, CommandsNames.RULES),
+        types.BotCommand(Commands.CHAT,  CommandsNames.CHAT),
+        types.BotCommand(Commands.ADMIN, CommandsNames.ADMIN),
+        types.BotCommand(Commands.TODAY, CommandsNames.TODAY),
         #TAGS
         #types.BotCommand(Commands.TAGS, "Настройка тегов на которые вы подписаны"),
     ]

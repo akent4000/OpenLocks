@@ -21,7 +21,6 @@ class Commands:
     CHAT = "chat"
     ADMIN = "admin"
     TODAY = "today"
-    TAGS = "tags"
 
 class ButtonNames:
     CLOSE = "Закрыть"
@@ -35,7 +34,7 @@ class Urls:
 
 class Constants:
     MIN_TEXT_LENGTH = 13
-    MENTION_PROBLEM = "MENTION_PROBLEM"
+    USER_MENTION_PROBLEM = "USER_MENTION_PROBLEM"
     RANDOM_LIST_SEED = 2649037
     NUMBER_LENGTH = 4
 
@@ -49,4 +48,16 @@ class Messages:
     TASK_TEXT_IS_NOT_DEFINIDED = "❗️ Заявка не создана: нет текста для описания."
     USER_CANT_DO_IT = "❌ У вас нет права выполнять это действие.\nОбратитесь к Администратору"
 
-    CHOOSE_TASK_TAG = "*Выберите тэг для вашей заявки*"
+    USER_MENTION_PROBLEM = """⚠️ Не удалось создать упоминание вашим именем.
+Пожалуйста, включите пересылку сообщений от бота:
+Настройки → Конфиденциальность → Пересылка сообщений"""
+
+    RULES = f"[Правила использования]({Urls.RULES})"
+
+
+class CommandsNames:
+    START = "Старт бота и проверка доступа к публикации заданий"
+    RULES = "Правила использования"
+    CHAT = "Общий чат"
+    ADMIN = "Контакт администратора"
+    TODAY = "Заявки за день"

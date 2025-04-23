@@ -96,7 +96,7 @@ def send_mention_notification(
             if callback:
                 bot.answer_callback_query(callback.id, "Не удалось упомянуть вас по имени.")
             logger.info(f"send_mention_notification: отправлено уведомление о проблеме упоминания пользователю {actor.chat_id}")
-            return Constants.MENTION_PROBLEM
+            return Constants.USER_MENTION_PROBLEM
         except Exception as e:
             logger.warning(f"send_mention_notification fallback: ошибка при fallback‑логике: {e}")
 
@@ -144,17 +144,13 @@ def update_dipsather_task_text(
                 )
                 bot.send_message(
                     chat_id=actor.chat_id,
-                    text=(
-                        "⚠️ Не удалось создать упоминание вашим именем. "
-                        "Пожалуйста, включите пересылку сообщений от бота:\n"
-                        "Настройки → Конфиденциальность → Пересылка сообщений"
-                    ),
+                    text=Messages.USER_MENTION_PROBLEM,
                     parse_mode="Markdown"
                 )
                 if callback:
                     bot.answer_callback_query(callback.id, "Не удалось упомянуть вас по имени.")
                 logger.info(f"update_dipsather_task_text: отправлено уведомление о проблеме упоминания пользователю {actor.chat_id}")
-                return Constants.MENTION_PROBLEM
+                return Constants.USER_MENTION_PROBLEM
             except Exception as e:
                 logger.warning(f"update_dipsather_task_text fallback: ошибка при fallback‑логике: {e}")
 
@@ -370,7 +366,7 @@ def broadcast_task_to_users(
                 reply_markup=reply_markup
             )
 
-            if text_msg == Constants.MENTION_PROBLEM:
+            if text_msg == Constants.USER_MENTION_PROBLEM:
                 logger.error(f"send_mention_notification не удалось создать упоминание пользователя, рассылка прекращена")
                 return
 

@@ -348,7 +348,7 @@ def handle_payment_select(call: CallbackQuery):
         reply_markup=dispather_task_keyboard(task=task),
     )
 
-    if sent and sent != Constants.MENTION_PROBLEM:
+    if sent and sent != Constants.USER_MENTION_PROBLEM:
         edit_master_task_message(
             recipient=master,
             task=task,
