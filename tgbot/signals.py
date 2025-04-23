@@ -163,3 +163,39 @@ def delete_tasks_on_block(sender, instance: TelegramUser, created, **kwargs):
 def cleanup_task(sender, instance: Task, **kwargs):
     from tgbot.handlers.utils import delete_all_task_related
     delete_all_task_related(instance)
+
+@receiver(pre_save, sender=Configuration)
+def configuration_pre_save(sender, instance, **kwargs):
+    """
+    Перед сохранением сохраняем старое значение test_mode
+    в instance._old_test_mode, чтобы потом понять, поменялось ли оно.
+    """
+    if not instance.pk:
+        # ещё нет записи в БД — это первая сохранёнка
+        instance._old_test_mode = None
+    else:
+        try:
+            old = Configuration.objects.get(pk=instance.pk)
+            instance._old_test_mode = old.test_mode
+        except Configuration.DoesNotExist:
+            instance._old_test_mode = None
+
+@receiver(post_save, sender=Configuration)
+def configuration_post_save(sender, instance, created, **kwargs):
+    from tgbot.management.commands.startbot import restart_bots
+    """
+    После сохранения проверяем:
+    - если это новая запись (created=True) — можно сразу рестартовать
+    - если старое значение не None и оно отличается от нового — рестартуем
+    """
+    old = getattr(instance, '_old_test_mode', None)
+    new = instance.test_mode
+
+    # Если только что создана запись, или test_mode действительно изменился
+    if created or (old is not None and old != new):
+        restart_bots()
+
+@receiver(post_save, sender=TelegramBotToken)
+def configuration_post_save(sender, instance, created, **kwargs):
+    from tgbot.management.commands.startbot import restart_bots
+    restart_bots()
