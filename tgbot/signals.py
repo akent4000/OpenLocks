@@ -183,22 +183,32 @@ def configuration_pre_save(sender, instance, **kwargs):
 
 @receiver(post_save, sender=Configuration)
 def configuration_post_save(sender, instance, created, **kwargs):
-    from tgbot.management.commands.startbot import restart_program_exit
-    """
-    После сохранения проверяем:
-    - если это новая запись (created=True) — можно сразу рестартовать
-    - если старое значение не None и оно отличается от нового — рестартуем
-    """
     old = getattr(instance, '_old_test_mode', None)
     new = instance.test_mode
 
-    # Если только что создана запись, или test_mode действительно изменился
-    if created or (old is not None and old != new):
-        def _deferred_restart():
-            restart_program_exit()
+    # если тестовый режим не менялся — выходим
+    if not (created or (old is not None and old != new)):
+        return
 
-        # запускаем после коммита (чтобы работать в транзакции)
-        transaction.on_commit(lambda: threading.Timer(0.5, _deferred_restart).start())
+    def _restart_service():
+        # выполняем systemctl restart bot
+        try:
+            subprocess.run(
+                ['sudo', 'systemctl', 'restart', 'bot'],
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+            )
+        except Exception as e:
+            # здесь можно залогировать неудачу, если нужно
+            print("Failed to restart service 'bot':", e)
+
+    # откладываем рестарт до конца транзакции и отдачи ответа
+    def _deferred():
+        # запускаем в отдельном потоке, чтобы не блокировать процесс Django
+        threading.Thread(target=_restart_service, daemon=True).start()
+
+    transaction.on_commit(_deferred)
 
 @receiver(post_save, sender=TelegramBotToken)
 def tgbot_token_post_save(sender, instance, created, **kwargs):
