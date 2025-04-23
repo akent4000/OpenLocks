@@ -31,8 +31,9 @@ def sync_user_data(update: Message | CallbackQuery) -> tuple[TelegramUser, bool]
         return None
 
     # 2) Пропускаем групповые чаты
-    if chat.type in ("group", "supergroup"):
-        logger.debug("sync_user_data: пропущен групповой чат %s (%s)", chat.id, chat.type)
+    logger.info(f"{chat.id} {chat.type}")
+    if chat.type in ["group", "supergroup", "channel"]:
+        logger.info("sync_user_data: пропущен групповой чат %s (%s)", chat.id, chat.type)
         return None
 
     chat_id = chat.id
@@ -67,6 +68,6 @@ def sync_user_data(update: Message | CallbackQuery) -> tuple[TelegramUser, bool]
         except Exception as e:
             logger.error("sync_user_data: Failed to save TelegramUser %s: %s", user.chat_id, e)
     else:
-        logger.debug("sync_user_data: No changes for TelegramUser %s", user.chat_id)
+        logger.info("sync_user_data: No changes for TelegramUser %s", user.chat_id)
 
     return user, created
