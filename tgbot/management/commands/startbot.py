@@ -53,7 +53,7 @@ class Command(BaseCommand):
                         def handle_all_messages(message):
                             dispatcher.test_bot.reply_to(
                                 message,
-                                "⚠️ *Технические работы* ⚠️\n\nВсе VPN конфигурации работают, но сейчас бот может не работать, или работать некорректно",
+                                "⚠️ *Технические работы*",
                                 parse_mode="Markdown"
                             )
 
