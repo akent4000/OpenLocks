@@ -33,40 +33,41 @@ def extract_files_from_message(message: Message) -> list:
         files.append({"file_id": message.video.file_id, "type": "video"})
     return files
 
+def send_temporary_error(chat_id: int, reply_to_message_id, message_text: str):
+    try:
+        sent = bot.send_message(chat_id, message_text, reply_to_message_id=reply_to_message_id, parse_mode="Markdown")
+        logger.info(f"process_task_submission: отправлена ошибка '{message_text}' пользователю {chat_id}")
+        time.sleep(5)
+        try:
+            bot.delete_message(chat_id, sent.message_id)
+            logger.info(f"process_task_submission: удалено сообщение об ошибке {sent.message_id} для {chat_id}")
+        except Exception as e:
+            logger.error(f"process_task_submission: ошибка при удалении сообщения об ошибке {sent.message_id}: {e}")
+    except Exception as e:
+        logger.error(f"process_task_submission: ошибка при отправке сообщения об ошибке пользователю {chat_id}: {e}")
+
 def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, files: list = None) -> None:
     """
     Пытается создать новую задачу. Если что-то идёт не так — уведомляет пользователя и удаляет сообщение об ошибке через 5 секунд.
     """
-    def send_temporary_error(chat_id: int, message_text: str):
-        try:
-            sent = bot.send_message(chat_id, message_text, reply_to_message_id=reply_to_message_id, parse_mode="Markdown")
-            logger.info(f"process_task_submission: отправлена ошибка '{message_text}' пользователю {chat_id}")
-            time.sleep(5)
-            try:
-                bot.delete_message(chat_id, sent.message_id)
-                logger.info(f"process_task_submission: удалено сообщение об ошибке {sent.message_id} для {chat_id}")
-            except Exception as e:
-                logger.error(f"process_task_submission: ошибка при удалении сообщения об ошибке {sent.message_id}: {e}")
-        except Exception as e:
-            logger.error(f"process_task_submission: ошибка при отправке сообщения об ошибке пользователю {chat_id}: {e}")
 
     # 1) Проверка длины
     if len(text) < Constants.MIN_TEXT_LENGTH:
         logger.info(f"Заявка от {chat_id} слишком короткая: '{text}'")
-        send_temporary_error(chat_id, Messages.TASK_TEXT_IS_TOO_SHORT)
+        send_temporary_error(chat_id, reply_to_message_id, Messages.TASK_TEXT_IS_TOO_SHORT)
         return
 
     # 2) Найти/зарегистрировать пользователя
     user = TelegramUser.get_user_by_chat_id(chat_id=chat_id)
     if not user:
         logger.error(f"Пользователь {chat_id} не зарегистрирован")
-        send_temporary_error(chat_id, Messages.USER_IS_NO_REGISTERED)
+        send_temporary_error(chat_id, reply_to_message_id, Messages.USER_IS_NO_REGISTERED)
         return
 
     # 3) Проверка прав
     if not user.can_publish_tasks:
         logger.info(f"Пользователю {chat_id} запрещено публиковать задачи")
-        send_temporary_error(chat_id, Messages.USER_CANT_PUBLISH_TASKS)
+        send_temporary_error(chat_id, reply_to_message_id, Messages.USER_CANT_PUBLISH_TASKS)
         return
 
     # Всё ок — создаём задачу
@@ -142,15 +143,11 @@ def process_media_group(media_group_id: str):
 
     if not text:
         logger.info(f"Media group {media_group_id} без подписи от {chat_id}")
-        bot.send_message(chat_id, Messages.TASK_TEXT_IS_NOT_DEFINIDED, reply_to_message_id=messages[0].message_id)
+        send_temporary_error(chat_id, messages[0].message_id, Messages.TASK_TEXT_IS_NOT_DEFINIDED)
         return
     if len(text) < Constants.MIN_TEXT_LENGTH:
         logger.info(f"Media group {media_group_id} с короткой подписью от {chat_id}")
-        bot.send_message(
-            chat_id,
-            Messages.TASK_TEXT_IS_TOO_SHORT,
-            reply_to_message_id=messages[0].message_id
-        )
+        send_temporary_error(chat_id, messages[0].message_id, Messages.TASK_TEXT_IS_TOO_SHORT)
         return
 
     process_task_submission(chat_id, text, reply_to_message_id=messages[0].message_id, files=files)
@@ -174,6 +171,6 @@ def handle_single_message(message: Message):
         files = extract_files_from_message(message)
         if not message.caption:
             logger.info(f"Сообщение {message.message_id} от {message.chat.id} без подписи")
-            bot.send_message(message.chat.id, Messages.TASK_TEXT_IS_NOT_DEFINIDED, reply_to_message_id=message.message_id)
+            send_temporary_error(message.chat.id, message.message_id, Messages.TASK_TEXT_IS_NOT_DEFINIDED)
             return
         process_task_submission(message.chat.id, message.caption.strip(), reply_to_message_id=message.message_id, files=files)
