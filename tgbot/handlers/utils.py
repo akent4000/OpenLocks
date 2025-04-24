@@ -70,15 +70,6 @@ def get_task_from_call(call: CallbackQuery, task_id: int) -> Task | None:
         bot.answer_callback_query(call.id, Messages.TASK_NOT_FOUND_ERROR)
         return None
 
-#TAGS
-# def get_tag_by_id(call: CallbackQuery, tag_id: int) -> Tag | None:
-#     """Получает объект Tag по tag_id."""
-#     try:
-#         return Tag.objects.get(id=tag_id)
-#     except Tag.DoesNotExist:
-#         bot.answer_callback_query(call.id, "Ошибка: выбранный тег не найден.")
-#         return None
-
 def delete_all_task_related(task: Task):
     """
     Удаляет все сообщения, связанные с заявкой:
@@ -121,55 +112,6 @@ def get_task_for_creator(call: CallbackQuery, task_id: int) -> Task | None:
     except Task.DoesNotExist:
         bot.answer_callback_query(call.id, Messages.TASK_NOT_FOUND_ERROR)
         return None
-
-#TAGS
-# @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TAG_SELECT}?"))
-# def handle_tag_selection(call: CallbackQuery):
-#     """
-#     Обработчик выбора тега через inline-кнопку.
-    
-#     Callback data имеет формат:
-#         "tag_select?tag_id={tag.id}&task_id={task.id}"
-    
-#     Из callback data извлекаются параметры tag_id и task_id.
-#     По ним определяется выбранный тег и обновляется существующая заявка:
-#       - заменяется тег,
-#       - устанавливается stage в Task.Stage.CREATED.
-#     """
-#     user = get_user_from_call(call)
-#     if not user or not ensure_publish_permission(user, call):
-#         return
-#     params = extract_query_params(call)
-    
-#     tag_id = extract_int_param(call, params, CallbackData.TAG_ID, "Ошибка: отсутствует tag_id.")
-#     task_id = extract_int_param(call, params, CallbackData.TASK_ID, "Ошибка: отсутствует task_id.")
-#     if tag_id is None or task_id is None:
-#         return
-    
-#     tag = get_tag_by_id(call, tag_id)
-#     if not tag:
-#         return
-
-#     task = get_task_from_call(call, task_id)
-#     if not task:
-#         return
-
-#     task.tag = tag
-#     task.stage = Task.Stage.CREATED
-#     task.save()
-    
-#     bot.answer_callback_query(call.id, f"Заявка обновлена: выбран тег '{tag.name}'.")
-#     edit_task_message(
-#         recipient=user,
-#         task=task, 
-#         new_text=f"*Ваша заявка*:\n{task.task_text}",
-#         new_reply_markup=dispather_task_keyboard(task=task)
-#     )
-
-#     broadcast_task_to_subscribers(
-#         task=task,
-#         reply_markup=payment_types_keyboard(task=task)
-#     )
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TASK_CANCEL}?"))
 def handle_task_cancel(call: CallbackQuery):
@@ -441,59 +383,3 @@ def handle_response_cancel(call: CallbackQuery):
     )
 
     bot.answer_callback_query(call.id, Messages.RESPONSE_CANCELED)
-
-#TAGS
-# @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.TAG_TOGGLE}?"))
-# def handle_tag_toggle(call: CallbackQuery):
-#     """
-#     Переключает подписку пользователя на тег и обновляет клавиатуру.
-#     """
-#     user = get_user_from_call(call)
-#     if not user:
-#         return
-
-#     params = extract_query_params(call)
-#     tag_id = extract_int_param(call, params, CallbackData.TAG_ID, "Ошибка: отсутствует tag_id.")
-#     if tag_id is None:
-#         return
-
-#     try:
-#         tag = Tag.objects.get(id=tag_id)
-#     except Tag.DoesNotExist:
-#         bot.answer_callback_query(call.id, "Ошибка: тег не найден.")
-#         return
-
-#     if tag.id in set(user.subscribed_tags.values_list("id", flat=True)):
-#         user.subscribed_tags.remove(tag)
-#         action = "отписались"
-#     else:
-#         user.subscribed_tags.add(tag)
-#         action = "подписались"
-#     user.save()
-
-#     new_markup = tag_toggle_keyboard(user)
-#     try:
-#         bot.edit_message_reply_markup(
-#             chat_id=call.message.chat.id,
-#             message_id=call.message.message_id,
-#             reply_markup=new_markup
-#         )
-#     except Exception as e:
-#         logger.error(f"Не удалось обновить клавиатуру тегов: {e}")
-
-#     bot.answer_callback_query(call.id, f"Вы {action} от тега «{tag.name}»")
-
-# @bot.callback_query_handler(func=lambda call: call.data == CallbackData.CLOSE_TAG_TOGGLES)
-# def handle_close_tag_toggles(call: CallbackQuery):
-#     """
-#     Закрывает меню настройки тегов — удаляет сообщение с клавиатурой.
-#     """
-#     try:
-#         bot.delete_message(
-#             chat_id=call.message.chat.id,
-#             message_id=call.message.message_id
-#         )
-#     except Exception as e:
-#         logger.error(f"Не удалось удалить сообщение с тегами: {e}")
-
-#     bot.answer_callback_query(call.id)

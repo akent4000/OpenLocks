@@ -314,15 +314,6 @@ class TelegramUserAdmin(admin.ModelAdmin):
             level=messages.SUCCESS
         )
 
-#TAGS
-##############################
-# Tag Admin
-##############################
-# @admin.register(Tag)
-# class TagAdmin(admin.ModelAdmin):
-#     list_display = ('id', 'name')
-#     search_fields = ('name',)
-
 ##############################
 # PaymentTypeModel Admin
 ##############################

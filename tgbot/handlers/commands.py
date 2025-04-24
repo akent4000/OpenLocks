@@ -80,26 +80,3 @@ def handle_today(message: Message):
         chat_id=message.chat.id,
         text=f"За {date_str} {word_number_case_was(count)} {word_number_case_sent(count)} {word_number_case_tasks(count)}"
     )
-
-#TAGS
-# @bot.message_handler(commands=[Commands.TAGS])
-# def handle_tags(message: Message):
-#     """
-#     Обработчик команды /tags — отправляет клавиатуру с доступными тегами.
-#     Позволяет подписаться или отписаться от тегов.
-#     """
-#     user = TelegramUser.objects.filter(chat_id=message.chat.id).first()
-#     if not user:
-#         bot.send_message(message.chat.id, "Пользователь не найден. Введите /start сначала.")
-#         return
-
-#     keyboard = tag_toggle_keyboard(user)
-#     if not keyboard:
-#         bot.send_message(message.chat.id, "Теги пока не заданы.")
-#         return
-
-#     bot.send_message(
-#         chat_id=message.chat.id,
-#         text="Выберите теги, на которые хотите подписаться или отписаться:",
-#         reply_markup=keyboard
-#     )

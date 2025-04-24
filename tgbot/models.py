@@ -127,13 +127,6 @@ class TelegramUser(models.Model):
     blocked = models.BooleanField(default=False, verbose_name='Блокировка')
     is_group = models.BooleanField(default=False, verbose_name='Групповой чат')
     bot_was_blocked = models.BooleanField(default=False, verbose_name='Бот заблокирован')
-    #TAGS
-    # subscribed_tags = models.ManyToManyField(
-    #     'Tag', 
-    #     blank=True, 
-    #     related_name='subscribers', 
-    #     verbose_name='Подписка на теги'
-    # )
     send_admin_notifications = models.BooleanField(default=False, verbose_name='Оповещения об ошибках')
 
     def __str__(self):
@@ -149,19 +142,6 @@ class TelegramUser(models.Model):
     class Meta:
         verbose_name = 'Пользователь Telegram'
         verbose_name_plural = 'Пользователи Telegram'
-
-#TAGS
-# class Tag(models.Model):
-#     """Модель тега"""
-#     name = models.CharField(max_length=100, unique=True, verbose_name='Имя тега')
-
-#     def __str__(self):
-#         return self.name
-
-#     class Meta:
-#         verbose_name = 'Тег'
-#         verbose_name_plural = 'Теги'
-
 
 class PaymentTypeModel(models.Model):
     """Модель типа оплаты"""
@@ -196,14 +176,6 @@ class Task(models.Model):
         #PENDING_TAG = 'pending_tag', 'В ожидании выбора тэга'
         CREATED = 'created', 'Создано'
         CLOSED = 'closed', 'Задание закрыто'
-    #TAGS
-    # tag = models.ForeignKey(
-    #     Tag, 
-    #     on_delete=models.SET_NULL,  
-    #     blank=True,
-    #     null=True,
-    #     verbose_name='Тег',
-    # )
     title = models.CharField(max_length=255, verbose_name='Название')
     description = models.TextField(verbose_name='Текст задания')
     creator = models.ForeignKey(
@@ -242,9 +214,6 @@ class Task(models.Model):
     @property
     def dispather_task_text(self):
         from tgbot.logics.text_helper import get_mention
-        #TAGS
-        # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
-        # return f"*Заявка №{self.id}:\n{tag_text}* {self.description}\n"
         text = Messages.DISPATHER_TASK_TEXT.format(random_task_number=self.random_task_number, description=self.description)
 
         if self.responses.all():
@@ -261,9 +230,6 @@ class Task(models.Model):
     @property
     def master_task_text_with_dispather_mention(self):
         from tgbot.logics.text_helper import get_mention
-        #TAGS
-        # tag_text = f"Тэг: *{self.tag.name}*\n" if self.tag else ""
-        # return f"*Заявка №{self.id}:\nДиспетчер: *{{mention}}*\n{tag_text}* {self.description}\n"
         actor = self.creator
         mention = get_mention(actor)
         return Messages.MASTER_TASK_TEXT.format(random_task_number=self.random_task_number, mention=mention, description=self.description)

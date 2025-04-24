@@ -90,16 +90,6 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
                 file_type=f["type"]
             )
 
-    #TAGS
-    # Отправляем первое сообщение с выбором тега
-    # send_task_message(
-    #     recipient=user,
-    #     task=task,
-    #     text=f"{Messages.CHOOSE_TASK_TAG}\n\n{task.task_text}",
-    #     reply_markup=tags_keyboard(task),
-    #     reply_to_message_id=task.creator_message_id_to_reply,
-    # )
-
     # Отправляем задачу диспетчеру
     send_task_message(
         recipient=user,
@@ -110,7 +100,6 @@ def process_task_submission(chat_id: int, text: str, reply_to_message_id: int, f
     )
 
     # Рассылаем мастерам
-    #TAGS
     broadcast_task_to_users(
         task=task,
         reply_markup=payment_types_keyboard(task=task)

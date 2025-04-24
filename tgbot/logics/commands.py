@@ -21,8 +21,6 @@ def init_bot_commands(bot):
         types.BotCommand(Commands.GENERAL_CHAT,  CommandsNames.GENERAL_CHAT),
         types.BotCommand(Commands.ADMIN, CommandsNames.ADMIN),
         types.BotCommand(Commands.TODAY, CommandsNames.TODAY),
-        #TAGS
-        #types.BotCommand(Commands.TAGS, "Настройка тегов на которые вы подписаны"),
     ]
 
     bot.set_my_commands(commands)

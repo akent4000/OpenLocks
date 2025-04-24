@@ -12,24 +12,6 @@ Path("logs").mkdir(parents=True, exist_ok=True)
 log_filename = Path("logs") / f"{Path(__file__).stem}.log"
 logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
-#TAGS
-# def tags_keyboard(task: Task):
-#     tags = Tag.objects.all()
-#     if not tags:
-#         logger.error("Не найден ни один тег. Заявка не может быть сохранена.")
-#         return
-
-#     keyboard = []
-#     for tag in tags:
-#         button = InlineKeyboardButton(
-#             tag.name, 
-#             callback_data=f"{CallbackData.TAG_SELECT}?{CallbackData.TAG_ID}={tag.id}&{CallbackData.TASK_ID}={task.id}"
-#         )
-#         keyboard.append([button])
-#     markup = InlineKeyboardMarkup(keyboard)
-#     return markup
-
-
 def dispather_task_keyboard(task: Task):
     keyboard = []
     cancel_button = InlineKeyboardButton(
@@ -79,39 +61,3 @@ def master_response_cancel_keyboard(response: Response):
     keyboard.append([cancel_button])
     markup = InlineKeyboardMarkup(keyboard)
     return markup
-
-#TAGS
-# def tag_toggle_keyboard(user: TelegramUser):
-#     """
-#     Генератор клавиатуры для настройки подписки на теги.
-#     Между иконкой и названием тега добавляется ровно столько эм‑пробелов (\u2003),
-#     чтобы все названия визуально выровнялись по ширине.
-#     """
-#     tags = Tag.objects.all()
-#     if not tags:
-#         logger.error("Не найден ни один тег для настройки подписки.")
-#         return None
-
-#     subscribed = set(user.subscribed_tags.values_list("id", flat=True))
-#     keyboard = []
-
-#     for tag in tags:
-#         name = tag.name
-
-#         status_icon = "🟢" if tag.id in subscribed else "⚪️"
-#         button_text = f"{status_icon} {name}"
-
-#         button = InlineKeyboardButton(
-#             text=button_text,
-#             callback_data=f"{CallbackData.TAG_TOGGLE}?{CallbackData.TAG_ID}={tag.id}"
-#         )
-#         keyboard.append([button])
-
-
-#     close_button = InlineKeyboardButton(
-#         ButtonNames.CLOSE, 
-#         callback_data=f"{CallbackData.CLOSE_TAG_TOGGLES}"
-#     )
-
-#     keyboard.append([close_button])
-#     return InlineKeyboardMarkup(keyboard)
