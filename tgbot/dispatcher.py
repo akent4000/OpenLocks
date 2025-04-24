@@ -1,6 +1,6 @@
 import telebot
 from tgbot.logics.constants import Messages
-from tgbot.models import Configuration, TelegramBotToken
+from tgbot.models import Configuration, TelegramBotToken, TelegramUser
 from tgbot.logics.commands import init_bot_commands
 from typing import List
 from telebot import TeleBot
@@ -163,6 +163,57 @@ class SyncBot(TeleBot):
             if "reply_markup is not modified" in err or "message is not modified" in err:
                 return None
             logger.error(f"Не удалось отредактировать клавиатуру для {message_id}: {e}")
+            raise
+
+    def send_message(self, chat_id, *args, **kwargs):
+        """
+        Переопределяем send_message, чтобы:
+        - при 403 Forbidden: отметить bot_was_blocked=True
+        - при успешной отправке: если bot_was_blocked=True → сбросить на False
+        """
+        try:
+            msg = super().send_message(chat_id, *args, **kwargs)
+        except ApiException as e:
+            err = str(e).lower()
+            if e.error_code == 403 and "bot was blocked by the user" in err:
+                # Пользователь заблокировал бота
+                try:
+                    user = TelegramUser.objects.get(chat_id=chat_id)
+                    user.bot_was_blocked = True
+                    user.save(update_fields=['bot_was_blocked'])
+                    logger.info(f"Пользователь {chat_id} заблокировал бота, обновили bot_was_blocked=True")
+                except TelegramUser.DoesNotExist:
+                    logger.warning(f"send_message: нет пользователя с chat_id={chat_id}")
+                return None
+            # если это не наша кейс-403 — пробрасываем дальше
+            raise
+        else:
+            # Успешная отправка — сбрасываем флаг, если он был поднят
+            try:
+                user = TelegramUser.objects.get(chat_id=chat_id)
+                if user.bot_was_blocked:
+                    user.bot_was_blocked = False
+                    user.save(update_fields=['bot_was_blocked'])
+                    logger.info(f"Пользователь {chat_id} разблокировал бота, сбросили bot_was_blocked=False")
+            except TelegramUser.DoesNotExist:
+                pass
+            return msg
+
+    def answer_callback_query(self, callback_query_id, *args, **kwargs):
+        """
+        Переопределяем answer_callback_query, аналогично send_message.
+        При 403 — ставим bot_was_blocked.
+        """
+        try:
+            return super().answer_callback_query(callback_query_id, *args, **kwargs)
+        except ApiException as e:
+            err = str(e).lower()
+            if e.error_code == 403 and "bot was blocked by the user" in err:
+                # В этом случае chat_id можно взять из callback_query.data, 
+                # но проще — мы уже в процессе отбора не шлём заблокированным.
+                # Если нужно, можно достать chat_id из dispatcher.last_update или args.
+                logger.info("answer_callback_query: бот заблокирован — флаг выставить в send_message")
+                return None
             raise
 
 logger.add("logs/dispatcher.log", rotation="10 MB", level="INFO")

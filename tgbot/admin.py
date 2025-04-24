@@ -252,8 +252,10 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'first_name', 
         'last_name', 
         'username',
+        'is_group',
         'can_publish_tasks', 
         'blocked',
+        'bot_was_blocked',
         'send_admin_notifications',
         'created_at',
     )
@@ -262,6 +264,7 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'can_publish_tasks', 
         'blocked',
         'send_admin_notifications',
+        'bot_was_blocked',
         'created_at',
     )
     actions = [
@@ -270,6 +273,10 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'block_users',
         'unblock_users',
     ]
+    readonly_fields = (
+        'bot_was_blocked',
+        'created_at',
+    )
 
     @admin.action(description="Разрешить доступ к публикации заданий")
     def allow_publish_tasks(self, request, queryset):
