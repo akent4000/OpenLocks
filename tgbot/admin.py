@@ -360,11 +360,10 @@ class TaskAdmin(admin.ModelAdmin):
         'creator',
         'stage',
         'created_at',
-        'get_sent_messages',
     )
     # стандартные поля для текстового поиска
     search_fields = ('title', 'description')
-    readonly_fields = ('random_task_number', 'get_sent_messages')
+    readonly_fields = ('random_task_number')
 
     def random_task_number(self, obj):
         num = random_number_list.get(obj.pk)
@@ -389,10 +388,6 @@ class TaskAdmin(admin.ModelAdmin):
 
         # иначе — стандартная обработка (по title/description)
         return super().get_search_results(request, queryset, search_term)
-
-    def get_sent_messages(self, obj):
-        return ", ".join(f"{sm.message_id} ({sm.telegram_user})" for sm in obj.sent_messages.all())
-    get_sent_messages.short_description = "Отправленные сообщения"
 
     def delete_model(self, request, obj):
         from tgbot.handlers.utils import delete_all_task_related
