@@ -363,7 +363,7 @@ class TaskAdmin(admin.ModelAdmin):
     )
     # стандартные поля для текстового поиска
     search_fields = ('title', 'description')
-    readonly_fields = ('random_task_number',)
+    readonly_fields = ('random_task_number', 'task__files')
 
     def random_task_number(self, obj):
         num = random_number_list.get(obj.pk)
