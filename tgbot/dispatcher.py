@@ -90,7 +90,7 @@ class SyncBot(TeleBot):
         if not user or not user.blocked:
             return False
         
-        msg = Messages.GROUP_BLOCKED if is_group_chat(update) else Messages.USER_BLOCKED
+        msg = Messages.GROUP_BLOCKED if is_group_chat(update.message or update.callback_query) else Messages.USER_BLOCKED
         try:
             if update.message:
                 self.send_message(
