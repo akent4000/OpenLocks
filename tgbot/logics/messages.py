@@ -1,8 +1,9 @@
 import time
 import re
-from typing import Optional
+from typing import Optional, Iterable, Union
 
 from tgbot.dispatcher import bot
+from tgbot.logics.keyboards import *
 from tgbot.logics.text_helper import escape_markdown, get_mention, safe_markdown_mention
 from tgbot.models import *
 from tgbot.logics.constants import *
@@ -325,7 +326,7 @@ def edit_task_message(
     return sent
 
 
-def broadcast_task_to_users(
+def broadcast_send_task_to_users(
     task: Task,
     reply_markup: Optional[InlineKeyboardMarkup] = None
 ) -> None:
@@ -368,7 +369,6 @@ def broadcast_task_to_users(
 
         except Exception as e:
             logger.error(f"Не удалось отправить задачу {task.id} мастеру {sub.chat_id}: {e}")
-        time.sleep(0.04)
 
 def edit_master_task_message(
     recipient: TelegramUser,
@@ -444,3 +444,56 @@ def edit_master_task_message(
         task.save()
 
         logger.info(f"Задача {task.id} заново отправлена мастеру после ошибки {recipient.chat_id}")
+
+def broadcast_edit_master_task_message(
+    task: Task,
+    new_text: Optional[str] = False,
+    new_reply_markup: Optional[InlineKeyboardMarkup] = False,
+    exclude: Iterable[Union[TelegramUser, int]] | None = None,
+) -> None:
+    """
+    Массово редактирует сообщения у всех мастеров по задаче, кроме:
+      - диспетчера (task.creator),
+      - заблокированных,
+      - и любых, указанных в параметре exclude.
+
+    :param task:         объект задачи
+    :param exclude:      опциональный список TelegramUser или chat_id, которых нужно пропустить
+    """
+    # собираем set chat_id, которых исключаем
+    exclude_ids: set[int] = {task.creator.chat_id}
+    if exclude:
+        for item in exclude:
+            exclude_ids.add(item.chat_id if isinstance(item, TelegramUser) else int(item))
+
+    # выбираем мастеров: не диспетчер, не заблокированные, и не в exclude_ids
+    masters = (
+        TelegramUser.objects
+        .exclude(chat_id__in=exclude_ids)
+        .exclude(blocked=True)
+    )
+
+    for master in masters:
+        try:
+            master_responded: bool = task.responses.filter(telegram_user=master).exists()
+            if master_responded:
+                response = task.responses.filter(telegram_user=master).last()
+                if new_text is False:
+                    new_text = Messages.RESPONSE_SENT_TASK_TEXT.format(task_text=task.master_task_text_with_dispather_mention)
+                if new_reply_markup is False:
+                    new_reply_markup = master_response_cancel_keyboard(response=response)
+            else:
+                if new_text is False:
+                    new_text = task.master_task_text_with_dispather_mention
+                if new_reply_markup is False:
+                    new_reply_markup = payment_types_keyboard(task=task)
+
+            edit_master_task_message(
+                recipient=master,
+                task=task,
+                new_text=new_text,
+                new_reply_markup=new_reply_markup
+            )
+            logger.info(f"broadcast_edit: отредактировано сообщение задачи {task.id} у мастера {master.chat_id}")
+        except Exception as e:
+            logger.error(f"broadcast_edit: не удалось отредактировать сообщение задачи {task.id} у {master.chat_id}: {e}")
