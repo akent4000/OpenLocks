@@ -358,6 +358,7 @@ class FilesInline(admin.TabularInline):
 class ResponseInline(admin.TabularInline):
     model = Response
     extra = 0
+    list_display = ('telegram_user', 'payment_type', 'created_at')
     readonly_fields = ('telegram_user', 'payment_type', 'created_at')
 
 ##############################
