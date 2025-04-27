@@ -245,6 +245,22 @@ class ConfigurationAdmin(SingletonModelAdmin):
         (None, {'fields': ('test_mode', 'auto_request_permission')}),
     )
 
+
+##############################
+# Inline для TelegramUser
+##############################
+class UserResponseInline(admin.TabularInline):
+    model = Response
+    fk_name = 'telegram_user'
+    extra = 0
+    readonly_fields = ('task', 'payment_type', 'created_at')
+    can_delete = False
+    verbose_name = "Отклик пользователя"
+    verbose_name_plural = "Отклики пользователя"
+
+##############################
+# TelegramUser Admin
+##############################
 @admin.register(TelegramUser)
 class TelegramUserAdmin(admin.ModelAdmin):
     list_display = (
@@ -277,6 +293,7 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'bot_was_blocked',
         'created_at',
     )
+    inlines = [UserResponseInline]
 
     @admin.action(description="Разрешить доступ к публикации заданий")
     def allow_publish_tasks(self, request, queryset):
@@ -362,6 +379,7 @@ class TaskAdmin(admin.ModelAdmin):
     # стандартные поля для текстового поиска
     search_fields = ('title', 'description')
     readonly_fields = ('random_task_number',)
+    inlines = [FilesInline, ResponseInline]
 
     def random_task_number(self, obj):
         num = random_number_list.get(obj.pk)
