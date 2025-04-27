@@ -476,6 +476,7 @@ def broadcast_edit_master_task_message(
     for master in masters:
         try:
             master_responded: bool = task.responses.filter(telegram_user=master).exists()
+            logger.info(master_responded)
             if master_responded:
                 response = task.responses.filter(telegram_user=master).last()
                 if new_text is False:
