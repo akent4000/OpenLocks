@@ -253,8 +253,9 @@ class UserResponseInline(admin.TabularInline):
     model = Response
     fk_name = 'telegram_user'
     extra = 0
+    fields = ('telegram_user', 'payment_type', 'created_at')
     readonly_fields = ('task', 'payment_type', 'created_at')
-    can_delete = False
+    can_delete = True
     verbose_name = "Отклик пользователя"
     verbose_name_plural = "Отклики пользователя"
 
@@ -358,8 +359,11 @@ class FilesInline(admin.TabularInline):
 class ResponseInline(admin.TabularInline):
     model = Response
     extra = 0
-    list_display = ('telegram_user', 'payment_type', 'created_at')
+    fields = ('telegram_user', 'payment_type', 'created_at')
     readonly_fields = ('telegram_user', 'payment_type', 'created_at')
+    can_delete = True
+    verbose_name = "Отклик"
+    verbose_name_plural = "Отклики"
 
 ##############################
 # Task Admin
