@@ -215,9 +215,72 @@ class SyncBot(TeleBot):
                 logger.info(f"Callback {callback_query_id}: bot blocked by user")
                 return None
             raise
-    
+
+    def _do_delete_message(self, chat_id, message_id):
+        try:
+            return super().delete_message(chat_id, message_id)
+        except ApiException as e:
+            err = str(e).lower()
+            # Telegram может вернуть 400 Bad Request: "Message to delete not found"
+            if "message to delete not found" in err or "message can't be deleted" in err:
+                return None
+            logger.error(f"Не удалось delete_message {message_id}: {e}")
+            raise
+
+    def _do_send_media_group(self, chat_id, media, *args, **kwargs):
+        try:
+            msgs = super().send_media_group(chat_id, media, *args, **kwargs)
+        except ApiException as e:
+            err = str(e).lower()
+            if e.error_code == 403 and "bot was blocked by the user" in err:
+                TelegramUser.objects.filter(chat_id=chat_id).update(bot_was_blocked=True)
+                return None
+            raise
+        else:
+            TelegramUser.objects.filter(chat_id=chat_id, bot_was_blocked=True).update(bot_was_blocked=False)
+            return msgs
+
+    def _do_send_photo(self, chat_id, *args, **kwargs):
+        try:
+            return super().send_photo(chat_id, *args, **kwargs)
+        except ApiException as e:
+            if e.error_code == 403 and "bot was blocked by the user" in str(e).lower():
+                TelegramUser.objects.filter(chat_id=chat_id).update(bot_was_blocked=True)
+                return None
+            raise
+
+    def _do_send_video(self, chat_id, *args, **kwargs):
+        try:
+            return super().send_video(chat_id, *args, **kwargs)
+        except ApiException as e:
+            if e.error_code == 403 and "bot was blocked by the user" in str(e).lower():
+                TelegramUser.objects.filter(chat_id=chat_id).update(bot_was_blocked=True)
+                return None
+            raise
+
+    def _do_send_document(self, chat_id, *args, **kwargs):
+        try:
+            return super().send_document(chat_id, *args, **kwargs)
+        except ApiException as e:
+            if e.error_code == 403 and "bot was blocked by the user" in str(e).lower():
+                TelegramUser.objects.filter(chat_id=chat_id).update(bot_was_blocked=True)
+                return None
+            raise
+
     def send_message(self, chat_id, *args, **kwargs):
         return self._enqueue(self._do_send_message, chat_id, *args, **kwargs)
+    
+    def send_media_group(self, chat_id, media, *args, **kwargs):
+        return self._enqueue(self._do_send_media_group, chat_id, media, *args, **kwargs)
+
+    def send_photo(self, chat_id, *args, **kwargs):
+        return self._enqueue(self._do_send_photo, chat_id, *args, **kwargs)
+
+    def send_video(self, chat_id, *args, **kwargs):
+        return self._enqueue(self._do_send_video, chat_id, *args, **kwargs)
+
+    def send_document(self, chat_id, *args, **kwargs):
+        return self._enqueue(self._do_send_document, chat_id, *args, **kwargs)
 
     def edit_message_text(self, chat_id, message_id, text, parse_mode=None, reply_markup=None, **kwargs):
         return self._enqueue(
@@ -233,6 +296,9 @@ class SyncBot(TeleBot):
 
     def answer_callback_query(self, callback_query_id, *args, **kwargs):
         return self._enqueue(self._do_answer_callback_query, callback_query_id, *args, **kwargs)
+    
+    def delete_message(self, chat_id, message_id):
+        return self._enqueue(self._do_delete_message, chat_id, message_id)
 
 logger.add("logs/dispatcher.log", rotation="10 MB", level="INFO")
 
