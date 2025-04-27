@@ -269,6 +269,10 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, Messages.DISPATCHER_CANNOT_RESPOND_TO_HIS_REQUEST)
         return
 
+    if task.responses.filter(telegram_user=master).exists():
+        bot.answer_callback_query(call.id, Messages.USER_CANNOT_RESPOND_TWICE)
+        return
+
     last_disp = (
         task.sent_messages
             .filter(telegram_user=task.creator)
