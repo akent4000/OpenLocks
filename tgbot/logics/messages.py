@@ -447,26 +447,26 @@ def edit_master_task_message(
 
 def broadcast_edit_master_task_message(
     task: Task,
-    new_text: Optional[str] = False,
-    new_reply_markup: Optional[InlineKeyboardMarkup] = False,
-    exclude: Iterable[Union[TelegramUser, int]] | None = None,
+    new_text: Optional[str] = None,
+    new_reply_markup: Optional[InlineKeyboardMarkup] = None,
+    exclude: Optional[Iterable[Union[TelegramUser, int]]] = None,
 ) -> None:
     """
     Массово редактирует сообщения у всех мастеров по задаче, кроме:
       - диспетчера (task.creator),
       - заблокированных,
       - и любых, указанных в параметре exclude.
-
-    :param task:         объект задачи
-    :param exclude:      опциональный список TelegramUser или chat_id, которых нужно пропустить
+    При наличии отклика у мастера будет использована клавиатура master_response_cancel_keyboard.
     """
-    # собираем set chat_id, которых исключаем
-    exclude_ids: set[int] = {task.creator.chat_id}
+    dispatcher = task.creator
+
+    # Собираем set chat_id, которых исключаем
+    exclude_ids = {dispatcher.chat_id}
     if exclude:
         for item in exclude:
             exclude_ids.add(item.chat_id if isinstance(item, TelegramUser) else int(item))
 
-    # выбираем мастеров: не диспетчер, не заблокированные, и не в exclude_ids
+    # Фильтруем мастеров
     masters = (
         TelegramUser.objects
         .exclude(chat_id__in=exclude_ids)
@@ -475,25 +475,29 @@ def broadcast_edit_master_task_message(
 
     for master in masters:
         try:
-            master_responded: bool = task.responses.filter(telegram_user=master).exists()
-            logger.info(master_responded)
-            if master_responded:
+            has_response = task.responses.filter(telegram_user=master).exists()
+
+            # для каждого мастера заводим свои локальные переменные
+            if has_response:
+                # берём последний отклик мастера
                 response = task.responses.filter(telegram_user=master).last()
-                if new_text is False:
-                    new_text = Messages.RESPONSE_SENT_TASK_TEXT.format(task_text=task.master_task_text_with_dispather_mention)
-                if new_reply_markup is False:
-                    new_reply_markup = master_response_cancel_keyboard(response=response)
+
+                # если не передан общий new_text — используем специальный текст для откликнувшихся
+                text_to_send = new_text if new_text is not None else Messages.RESPONSE_SENT_TASK_TEXT.format(
+                    task_text=task.master_task_text_with_dispather_mention
+                )
+                # если не передана общая клавиатура — ставим кнопку отмены отклика
+                markup_to_send = new_reply_markup if new_reply_markup is not None else master_response_cancel_keyboard(response=response)
             else:
-                if new_text is False:
-                    new_text = task.master_task_text_with_dispather_mention
-                if new_reply_markup is False:
-                    new_reply_markup = payment_types_keyboard(task=task)
+                # мастер ещё не откликался
+                text_to_send = new_text if new_text is not None else task.master_task_text_with_dispather_mention
+                markup_to_send = new_reply_markup if new_reply_markup is not None else payment_types_keyboard(task=task)
 
             edit_master_task_message(
                 recipient=master,
                 task=task,
-                new_text=new_text,
-                new_reply_markup=new_reply_markup
+                new_text=text_to_send,
+                new_reply_markup=markup_to_send
             )
             logger.info(f"broadcast_edit: отредактировано сообщение задачи {task.id} у мастера {master.chat_id}")
         except Exception as e:
