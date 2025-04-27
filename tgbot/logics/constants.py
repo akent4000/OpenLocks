@@ -40,6 +40,7 @@ class Constants:
 
 class Messages:
     WELCOME_MESSAGE = f"Для добавления напишите [Администратору]({Urls.SUPPORT})\nПосле добавления введите /start"
+    WELCOME_MESSAGE_GROUP = f"Бот работает в групповом чате"
     CHAT_ACTIVE_MESSAGE = "Чат активен, вы можете принимать и отправлять заявки, приятного пользования"
     
     DISPATHER_TASK_TEXT = "*Ваша заявка №{random_task_number}:*\n{description}\n"
