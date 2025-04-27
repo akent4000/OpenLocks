@@ -61,6 +61,9 @@ def _run_test_bot():
 
                 @dispatcher.test_bot.message_handler(func=lambda m: True)
                 def handle_all_messages(message):  # noqa: F811
+                    from tgbot.handlers.user_helper import is_group_chat
+                    if is_group_chat(message):
+                        return
                     dispatcher.test_bot.reply_to(
                         message,
                         "⚠️ *Технические работы*",
