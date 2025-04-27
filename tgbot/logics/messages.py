@@ -325,50 +325,64 @@ def edit_task_message(
             logger.error(f"edit_task_message: ошибка при отправке нового сообщения задачи {task.id}: {ex}")
     return sent
 
+def send_task_to_user(
+    task: Task,
+    master: TelegramUser,
+    reply_markup: Optional[InlineKeyboardMarkup] = None
+) -> Optional[SentMessage]:
+    """
+    Универсальная отправка задачи task одному мастеру master:
+      1) Отправляет файлы через send_task_files.
+      2) Формирует текст с упоминанием диспетчера.
+      3) Посылает сообщение через send_notification_with_mention_check.
+      4) Сохраняет SentMessage и возвращает его.
+    В случае ошибки — логирует и возвращает None.
+    """
+    try:
+        # 1. Отправляем файлы
+        first_msg_id = send_task_files(master, task)
+
+        # 2. Шаблон текста
+        text_template = task.master_task_text_with_dispather_mention
+
+        # 3. Отправляем сообщение с упоминанием диспетчера
+        sent = send_notification_with_mention_check(
+            recipient_chat_id=master.chat_id,
+            actor=task.creator,
+            text_template=text_template,
+            reply_to_message_id=first_msg_id,
+            reply_markup=reply_markup
+        )
+
+        if sent is None or sent == Constants.USER_MENTION_PROBLEM:
+            logger.error(f"send_task_to_user: не удалось отправить задачу {task.id} мастеру {master.chat_id}")
+            return None
+
+        # 4. Сохраняем в базе
+        sm = SentMessage.objects.create(
+            message_id=sent.message_id,
+            telegram_user=master
+        )
+        task.sent_messages.add(sm)
+        task.save()
+        logger.info(f"send_task_to_user: задача {task.id} отправлена мастеру {master.chat_id}")
+        return sm
+
+    except Exception as e:
+        logger.error(f"send_task_to_user: исключение при отправке задачи {task.id} мастеру {master.chat_id}: {e}")
+        return None
 
 def broadcast_send_task_to_users(
     task: Task,
     reply_markup: Optional[InlineKeyboardMarkup] = None
 ) -> None:
-    # if not task.tag:
-    #     logger.error(f"Задача {task.id} не имеет тега — рассылка отменена.")
-    #     return
-
     dispatcher = task.creator
-    users = TelegramUser.objects.exclude(chat_id=dispatcher.chat_id).exclude(blocked=True)
+    masters = TelegramUser.objects.exclude(
+        chat_id=dispatcher.chat_id
+    ).exclude(blocked=True)
 
-    for sub in users:
-        try:
-            # 1) файлы
-            first_msg_id = send_task_files(sub, task)
-
-            task_text = task.master_task_text_with_dispather_mention
-
-            text_msg = send_notification_with_mention_check(
-                recipient_chat_id=sub.chat_id,
-                actor=dispatcher,
-                text_template=task_text,
-                reply_to_message_id=first_msg_id,
-                reply_markup=reply_markup
-            )
-
-            if text_msg == Constants.USER_MENTION_PROBLEM:
-                logger.error(f"send_mention_notification не удалось создать упоминание пользователя, рассылка прекращена")
-                return
-
-            if text_msg:
-                sent = SentMessage.objects.create(
-                    message_id=text_msg.message_id,
-                    telegram_user=sub
-                )
-
-                task.sent_messages.add(sent)
-                task.save()
-
-                logger.info(f"Задача {task.id} отправлена мастеру {sub.chat_id}")
-
-        except Exception as e:
-            logger.error(f"Не удалось отправить задачу {task.id} мастеру {sub.chat_id}: {e}")
+    for master in masters:
+        send_task_to_user(task, master, reply_markup)
 
 def edit_master_task_message(
     recipient: TelegramUser,

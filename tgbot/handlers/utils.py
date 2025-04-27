@@ -273,6 +273,13 @@ def handle_payment_select(call: CallbackQuery):
         bot.answer_callback_query(call.id, Messages.USER_CANNOT_RESPOND_TWICE)
         return
 
+    if not task.sent_messages.filter(telegram_user=master).exists():
+        send_task_to_user(
+            task=task,
+            master=master,
+            reply_markup=payment_types_keyboard(task=task)
+        )
+
     last_disp = (
         task.sent_messages
             .filter(telegram_user=task.creator)
