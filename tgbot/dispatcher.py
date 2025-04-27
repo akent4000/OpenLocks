@@ -86,10 +86,11 @@ class SyncBot(TeleBot):
                 logger.exception("Ошибка super().process_new_updates: %s", e)
 
     def _handle_blocked_user(self, update: Update, user) -> bool:
+        from tgbot.handlers.user_helper import is_group_chat
         if not user or not user.blocked:
             return False
-
-        msg = Messages.USER_BLOCKED
+        
+        msg = Messages.GROUP_BLOCKED if is_group_chat(update) else Messages.USER_BLOCKED
         try:
             if update.message:
                 self.send_message(
