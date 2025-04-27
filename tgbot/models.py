@@ -232,7 +232,18 @@ class Task(models.Model):
         from tgbot.logics.text_helper import get_mention
         actor = self.creator
         mention = get_mention(actor)
-        return Messages.MASTER_TASK_TEXT.format(random_task_number=self.random_task_number, mention=mention, description=self.description)
+        text = Messages.MASTER_TASK_TEXT.format(random_task_number=self.random_task_number, mention=mention, description=self.description)
+        
+        if self.responses.all():
+            text += Messages.RESPONSES
+
+        for response in self.responses.all():
+            actor = response.telegram_user
+            mention = get_mention(actor)
+
+            text += Messages.MASTER_WANT_TO_PICK_UP_TASK.format(mention=mention, payment_type=response.payment_type.name)
+            
+        return text
     
 
     class Meta:

@@ -7,7 +7,7 @@ from tgbot.models import *
 from tgbot.logics.constants import *
 from tgbot.logics.keyboards import *
 from tgbot.logics.messages import *
-
+from tgbot.handlers.user_helper import is_group_chat
 from pathlib import Path
 from loguru import logger
 
@@ -143,6 +143,8 @@ def process_media_group(media_group_id: str):
 
 @bot.message_handler(func=lambda m: m.media_group_id is not None, content_types=['photo','video','document'])
 def handle_media_group(message: Message):
+    if is_group_chat(message):
+        return
     mgid = message.media_group_id
     if mgid not in media_group_cache:
         media_group_cache[mgid] = []
@@ -151,6 +153,8 @@ def handle_media_group(message: Message):
 
 @bot.message_handler(func=lambda m: m.media_group_id is None, content_types=['text','photo','document','video'])
 def handle_single_message(message: Message):
+    if is_group_chat(message):
+        return
     if message.content_type == 'text':
         text = message.text.strip()
         timer = threading.Timer(2.0, process_pending_text, args=[message.chat.id, message, text])

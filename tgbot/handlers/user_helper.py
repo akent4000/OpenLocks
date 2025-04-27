@@ -31,28 +31,26 @@ def sync_user_data(update: Message | CallbackQuery) -> tuple[TelegramUser, bool]
         return None
 
     # 2) Пропускаем групповые чаты
-    logger.info(f"{chat.id} {chat.type}")
-    if chat.type in ["group", "supergroup", "channel"]:
-        logger.info("sync_user_data: пропущен групповой чат %s (%s)", chat.id, chat.type)
-        return None
+    is_group = is_group_chat(update)
 
     chat_id = chat.id
-
+    first_name = chat.first_name or chat.title if is_group else ""
     # 3) Получаем или создаем пользователя
     user, created = TelegramUser.objects.get_or_create(
         chat_id=chat_id,
         defaults={
-            "first_name": chat.first_name or "",
+            "first_name": first_name,
             "last_name": chat.last_name or "",
-            "username": chat.username or "",
-            "can_publish_tasks": Configuration.get_solo().auto_request_permission,
+            "username": chat.username or "" ,
+            "can_publish_tasks": False if is_group else Configuration.get_solo().auto_request_permission,
+            "is_group": is_group,
         }
     )
 
     # 4) При необходимости обновляем изменившиеся поля
     changed = False
-    if user.first_name != (chat.first_name or ""):
-        user.first_name = chat.first_name or ""
+    if user.first_name != (first_name):
+        user.first_name = first_name
         changed = True
     if user.last_name != (chat.last_name or ""):
         user.last_name = chat.last_name or ""
@@ -71,3 +69,15 @@ def sync_user_data(update: Message | CallbackQuery) -> tuple[TelegramUser, bool]
         logger.info("sync_user_data: No changes for TelegramUser %s", user.chat_id)
 
     return user, created
+
+def is_group_chat(obj: Message | CallbackQuery) -> bool:
+    # достаём объект chat
+    if isinstance(obj, Message):
+        chat = obj.chat
+    elif isinstance(obj, CallbackQuery):
+        # у callback всегда есть .message
+        chat = obj.message.chat
+    else:
+        return False
+
+    return chat.type in ('group', 'supergroup')
