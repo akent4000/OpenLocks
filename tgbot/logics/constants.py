@@ -59,6 +59,7 @@ class Messages:
     RESPONSE_CANCELED = "Ваш отклик удалён."
     RESPONSE_CANCELED_TASK_TEXT = "*Ваш отклик удалён*\n\n{task_text}"
 
+    DISPATCHER_CANNOT_RESPOND_TO_HIS_REQUEST = "❗️ Вы не можете откликнуться на свою заявку"
     USER_CANT_PUBLISH_TASKS = f"❗️ У вас пока нет доступа к публикации, редактированию или отклику на заявки.\nЧтобы получить права, обратитесь к [Администратору]({Urls.SUPPORT})"
     USER_IS_NO_REGISTERED = "❗️ Вы не зарегистрированы в системе. Пожалуйста, отправьте команду /start для начала работы."
     TASK_TEXT_IS_TOO_SHORT = f"❗️ Заявка не создана: текст слишком короткий (минимум {Constants.MIN_TEXT_LENGTH} символов)."
