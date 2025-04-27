@@ -12,6 +12,10 @@ from tgbot.logics.random_numbers import RandomNumberList
 
 from pathlib import Path
 from loguru import logger
+import time
+import threading
+import queue
+import concurrent.futures
 
 # Убедимся, что папка logs существует
 Path("logs").mkdir(parents=True, exist_ok=True)
@@ -21,6 +25,96 @@ log_filename = Path("logs") / f"{Path(__file__).stem}.log"
 logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
 class SyncBot(TeleBot):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+        # очередь задач: каждый элемент — (func, args, kwargs, future)
+        self._call_queue: queue.Queue = queue.Queue()
+        # поток-демон, который обрабатывает очередь
+        self._worker = threading.Thread(target=self._process_queue, daemon=True)
+        self._worker.start()
+
+    def _process_queue(self):
+        while True:
+            func, args, kwargs, future = self._call_queue.get()
+            try:
+                result = func(*args, **kwargs)
+                future.set_result(result)
+            except Exception as e:
+                future.set_exception(e)
+            # задержка между запросами
+            time.sleep(0.05)
+
+    def _enqueue(self, func, *args, **kwargs):
+        """
+        Помещает вызов func(*args, **kwargs) в очередь и
+        возвращает его результат, блокируясь до выполнения.
+        """
+        future = concurrent.futures.Future()
+        self._call_queue.put((func, args, kwargs, future))
+        return future.result()
+
+    # --- обёртки реальных вызовов ---
+    def _do_send_message(self, chat_id, *args, **kwargs):
+        try:
+            msg = super().send_message(chat_id, *args, **kwargs)
+        except ApiException as e:
+            err = str(e).lower()
+            # если бот заблокирован — отмечаем в пользователе
+            if e.error_code == 403 and "bot was blocked by the user" in err:
+                try:
+                    u = TelegramUser.objects.get(chat_id=chat_id)
+                    u.bot_was_blocked = True
+                    u.save(update_fields=['bot_was_blocked'])
+                    logger.info(f"User {chat_id} blocked bot, flag set")
+                except TelegramUser.DoesNotExist:
+                    logger.warning(f"No TelegramUser with chat_id={chat_id}")
+                return None
+            raise
+        else:
+            # при успешной отправке — сбрасываем признак блокировки
+            try:
+                u = TelegramUser.objects.get(chat_id=chat_id)
+                if u.bot_was_blocked:
+                    u.bot_was_blocked = False
+                    u.save(update_fields=['bot_was_blocked'])
+                    logger.info(f"User {chat_id} unblocked bot, flag cleared")
+            except TelegramUser.DoesNotExist:
+                pass
+            return msg
+
+    def _do_edit_message_text(self, chat_id, message_id, text, parse_mode=None, reply_markup=None, **kwargs):
+        try:
+            return super().edit_message_text(
+                chat_id=chat_id,
+                message_id=message_id,
+                text=text,
+                parse_mode=parse_mode,
+                reply_markup=reply_markup,
+                **kwargs
+            )
+        except ApiException as e:
+            err = str(e).lower()
+            if "message is not modified" in err or "reply_markup is not modified" in err:
+                return None
+            logger.error(f"Failed to edit_message_text {message_id}: {e}")
+            raise
+
+    def _do_edit_message_reply_markup(self, chat_id, message_id, reply_markup, **kwargs):
+        try:
+            return super().edit_message_reply_markup(
+                chat_id=chat_id,
+                message_id=message_id,
+                reply_markup=reply_markup,
+                **kwargs
+            )
+        except ApiException as e:
+            err = str(e).lower()
+            if "reply_markup is not modified" in err or "message is not modified" in err:
+                return None
+            logger.error(f"Failed to edit_message_reply_markup {message_id}: {e}")
+            raise
+
     def _eat_update(self, update: Update):
         """
         Повышает offset (last_update_id), чтобы этот update не возвращался.
@@ -110,112 +204,35 @@ class SyncBot(TeleBot):
 
         return True
     
-    def edit_message_text(
-        self,
-        chat_id: int,
-        message_id: int,
-        text: str,
-        parse_mode: str | None = None,
-        reply_markup = None,
-        **kwargs
-    ):
-        """
-        Безопасно правит текст и/или клавиатуру сообщения.
-        Игнорирует ошибку 'message is not modified' от Telegram API.
-        """
-        try:
-            return super().edit_message_text(
-                chat_id=chat_id,
-                message_id=message_id,
-                text=text,
-                parse_mode=parse_mode,
-                reply_markup=reply_markup,
-                **kwargs
-            )
-        except ApiException as e:
-            err = str(e).lower()
-            if "message is not modified" in err or "reply_markup is not modified" in err:
-                # ничего не изменилось — пропускаем
-                return None
-            # другая ошибка — логируем и пробрасываем
-            logger.error(f"Не удалось отредактировать сообщение {message_id}: {e}")
-            raise
-
-    def edit_message_reply_markup(
-        self,
-        chat_id: int,
-        message_id: int,
-        reply_markup,
-        **kwargs
-    ):
-        """
-        Безопасно правит только клавиатуру.
-        Игнорирует 'reply_markup is not modified'.
-        """
-        try:
-            return super().edit_message_reply_markup(
-                chat_id=chat_id,
-                message_id=message_id,
-                reply_markup=reply_markup,
-                **kwargs
-            )
-        except ApiException as e:
-            err = str(e).lower()
-            if "reply_markup is not modified" in err or "message is not modified" in err:
-                return None
-            logger.error(f"Не удалось отредактировать клавиатуру для {message_id}: {e}")
-            raise
-
-    def send_message(self, chat_id, *args, **kwargs):
-        """
-        Переопределяем send_message, чтобы:
-        - при 403 Forbidden: отметить bot_was_blocked=True
-        - при успешной отправке: если bot_was_blocked=True → сбросить на False
-        """
-        try:
-            msg = super().send_message(chat_id, *args, **kwargs)
-        except ApiException as e:
-            err = str(e).lower()
-            if e.error_code == 403 and "bot was blocked by the user" in err:
-                # Пользователь заблокировал бота
-                try:
-                    user = TelegramUser.objects.get(chat_id=chat_id)
-                    user.bot_was_blocked = True
-                    user.save(update_fields=['bot_was_blocked'])
-                    logger.info(f"Пользователь {chat_id} заблокировал бота, обновили bot_was_blocked=True")
-                except TelegramUser.DoesNotExist:
-                    logger.warning(f"send_message: нет пользователя с chat_id={chat_id}")
-                return None
-            # если это не наша кейс-403 — пробрасываем дальше
-            raise
-        else:
-            # Успешная отправка — сбрасываем флаг, если он был поднят
-            try:
-                user = TelegramUser.objects.get(chat_id=chat_id)
-                if user.bot_was_blocked:
-                    user.bot_was_blocked = False
-                    user.save(update_fields=['bot_was_blocked'])
-                    logger.info(f"Пользователь {chat_id} разблокировал бота, сбросили bot_was_blocked=False")
-            except TelegramUser.DoesNotExist:
-                pass
-            return msg
-
-    def answer_callback_query(self, callback_query_id, *args, **kwargs):
-        """
-        Переопределяем answer_callback_query, аналогично send_message.
-        При 403 — ставим bot_was_blocked.
-        """
+    def _do_answer_callback_query(self, callback_query_id, *args, **kwargs):
         try:
             return super().answer_callback_query(callback_query_id, *args, **kwargs)
         except ApiException as e:
             err = str(e).lower()
             if e.error_code == 403 and "bot was blocked by the user" in err:
-                # В этом случае chat_id можно взять из callback_query.data, 
-                # но проще — мы уже в процессе отбора не шлём заблокированным.
-                # Если нужно, можно достать chat_id из dispatcher.last_update или args.
-                logger.info("answer_callback_query: бот заблокирован — флаг выставить в send_message")
+                # блокировка при ответе на callback
+                # можно отметить, если нужно, но обычно это не критично
+                logger.info(f"Callback {callback_query_id}: bot blocked by user")
                 return None
             raise
+    
+    def send_message(self, chat_id, *args, **kwargs):
+        return self._enqueue(self._do_send_message, chat_id, *args, **kwargs)
+
+    def edit_message_text(self, chat_id, message_id, text, parse_mode=None, reply_markup=None, **kwargs):
+        return self._enqueue(
+            self._do_edit_message_text,
+            chat_id, message_id, text, parse_mode, reply_markup, **kwargs
+        )
+
+    def edit_message_reply_markup(self, chat_id, message_id, reply_markup, **kwargs):
+        return self._enqueue(
+            self._do_edit_message_reply_markup,
+            chat_id, message_id, reply_markup, **kwargs
+        )
+
+    def answer_callback_query(self, callback_query_id, *args, **kwargs):
+        return self._enqueue(self._do_answer_callback_query, callback_query_id, *args, **kwargs)
 
 logger.add("logs/dispatcher.log", rotation="10 MB", level="INFO")
 
