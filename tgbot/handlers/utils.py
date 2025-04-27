@@ -32,9 +32,9 @@ def ensure_publish_permission(user: TelegramUser, call: CallbackQuery) -> bool:
 def get_user_from_call(call: CallbackQuery) -> TelegramUser | None:
     """Извлекает пользователя по chat_id из сообщения callback."""
     try:
-        return TelegramUser.get_user_by_chat_id(chat_id=call.message.chat.id)
+        return TelegramUser.get_user_by_chat_id(chat_id=call.from_user.id)
     except TelegramUser.DoesNotExist:
-        logger.error(f"Пользователь {call.message.chat.id} не найден")
+        logger.error(f"Пользователь {call.from_user.id} не найден")
         bot.answer_callback_query(call.id, Messages.USER_NOT_FOUND_ERROR)
         return None
 
@@ -65,7 +65,7 @@ def extract_int_param(call: CallbackQuery, params: dict, key: str, error_message
 def get_task_from_call(call: CallbackQuery, task_id: int) -> Task | None:
     """Получает объект Task по task_id и chat_id создателя."""
     try:
-        return Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
+        return Task.objects.get(id=task_id, creator__chat_id=call.from_user.id)
     except Task.DoesNotExist:
         bot.answer_callback_query(call.id, Messages.TASK_NOT_FOUND_ERROR)
         return None
@@ -108,7 +108,7 @@ def delete_all_task_related(task: Task):
 def get_task_for_creator(call: CallbackQuery, task_id: int) -> Task | None:
     """Получает объект Task по task_id и chat_id создателя."""
     try:
-        return Task.objects.get(id=task_id, creator__chat_id=call.message.chat.id)
+        return Task.objects.get(id=task_id, creator__chat_id=call.from_user.id)
     except Task.DoesNotExist:
         bot.answer_callback_query(call.id, Messages.TASK_NOT_FOUND_ERROR)
         return None
