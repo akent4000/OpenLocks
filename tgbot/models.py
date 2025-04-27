@@ -119,7 +119,7 @@ class SSHKey(models.Model):
 class TelegramUser(models.Model):
     """Модель пользователя Telegram"""
     chat_id = models.BigIntegerField(unique=True, verbose_name='Chat ID')
-    first_name = models.CharField(max_length=255, verbose_name='Имя')
+    first_name = models.CharField(max_length=255, blank=True, null=True, verbose_name='Имя')
     last_name = models.CharField(max_length=255, blank=True, null=True, verbose_name='Фамилия')
     username = models.CharField(max_length=255, blank=True, null=True, verbose_name='Username')
     created_at = models.DateTimeField(auto_now_add=True, verbose_name='Дата регистрации')
@@ -233,7 +233,7 @@ class Task(models.Model):
         actor = self.creator
         mention = get_mention(actor)
         text = Messages.MASTER_TASK_TEXT.format(random_task_number=self.random_task_number, mention=mention, description=self.description)
-        
+
         if self.responses.all():
             text += Messages.RESPONSES
 
