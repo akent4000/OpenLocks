@@ -242,6 +242,7 @@ def handle_payment_select(call: CallbackQuery):
     # 1. Получаем мастера и проверяем права
     master = get_user_from_call(call)
     if not master or not ensure_publish_permission(master, call):
+        bot.answer_callback_query(call.id, Messages.USER_IS_NO_REGISTERED)
         return
 
     # 2. Извлекаем payment_id и task_id
