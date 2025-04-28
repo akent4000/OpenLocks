@@ -357,7 +357,7 @@ def send_task_to_user(
 
         if sent is None or sent == Constants.USER_MENTION_PROBLEM:
             logger.error(f"send_task_to_user: не удалось отправить задачу {task.id} мастеру {master.chat_id}")
-            return Constants.USER_MENTION_PROBLEM
+            return sent
 
         # 4. Сохраняем в базе
         sm = SentMessage.objects.create(
