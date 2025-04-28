@@ -3,7 +3,7 @@ import re
 from typing import Optional, Iterable, Union
 
 from tgbot.dispatcher import bot
-from tgbot.handlers.utils import delete_all_task_related
+
 from tgbot.logics.keyboards import *
 from tgbot.logics.text_helper import escape_markdown, get_mention, safe_markdown_mention
 from tgbot.models import *
@@ -384,6 +384,7 @@ def broadcast_send_task_to_users(
 
     for master in masters:
         if send_task_to_user(task, master, reply_markup) == Constants.USER_MENTION_PROBLEM:
+            from tgbot.handlers.utils import delete_all_task_related
             delete_all_task_related(task)
             task.delete()
             return Constants.USER_MENTION_PROBLEM
