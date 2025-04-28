@@ -321,6 +321,8 @@ logger.info("Main bot instance created")
 init_bot_commands(bot)
 logger.info("Bot commands initialized")
 
+logger.info(bot.get_chat(583655273).username)
+
 # Тестовый бот может отсутствовать
 test_bot = None
 if test_bot_token:
