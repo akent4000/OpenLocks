@@ -34,7 +34,7 @@ def sync_user_data(update: Message | CallbackQuery) -> tuple[TelegramUser, bool]
     is_group = is_group_chat(update)
 
     chat_id = chat.id
-    first_name = chat.first_name or chat.title if is_group else ""
+    first_name = chat.first_name or chat.title or ""
     # 3) Получаем или создаем пользователя
     user, created = TelegramUser.objects.get_or_create(
         chat_id=chat_id,
