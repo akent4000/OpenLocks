@@ -11,7 +11,7 @@ Path("logs").mkdir(parents=True, exist_ok=True)
 log_filename = Path("logs") / f"{Path(__file__).stem}.log"
 logger.add(str(log_filename), rotation="10 MB", level="INFO")
 
-def sync_user_data(update: Message | CallbackQuery) -> tuple[TelegramUser, bool] | None:
+def sync_user_data(update: Message | CallbackQuery | TelegramUser) -> tuple[TelegramUser, bool] | None:
     """
     Синхронизирует поля TelegramUser (first_name, last_name, username, can_publish_tasks)
     на основании приходящего Message или CallbackQuery.
@@ -26,6 +26,9 @@ def sync_user_data(update: Message | CallbackQuery) -> tuple[TelegramUser, bool]
             logger.error("sync_user_data: у CallbackQuery нет message")
             return None
         chat = update.message.chat
+    elif isinstance(update, TelegramUser):
+        from tgbot.dispatcher import bot
+        chat = bot.get_chat(update.chat_id)
     else:
         logger.error(f"sync_user_data: Unsupported update type {type(update)}")
         return None

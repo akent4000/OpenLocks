@@ -290,6 +290,7 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'disallow_publish_tasks',
         'block_users',
         'unblock_users',
+        'refresh_user_data',
     ]
     readonly_fields = (
         'bot_was_blocked',
@@ -332,6 +333,39 @@ class TelegramUserAdmin(admin.ModelAdmin):
             f"Разблокировано {updated} пользователь(ей).",
             level=messages.SUCCESS
         )
+
+    @admin.action(description="Обновить данные пользователя")
+    def refresh_user_data(self, request, queryset):
+        """
+        Для каждого выбранного TelegramUser вызывает sync_user_data(user).
+        Логирует успехи и ошибки через сообщения в админке.
+        """
+        from tgbot.handlers.user_helper import sync_user_data
+
+        total = queryset.count()
+        successes = 0
+        errors = []
+
+        for user in queryset:
+            try:
+                sync_user_data(user)
+                successes += 1
+            except Exception as e:
+                errors.append(f"{user.chat_id}: {e}")
+
+        if successes:
+            self.message_user(
+                request,
+                f"Успешно обновлено данных для {successes} из {total} пользователя(ей).",
+                level=messages.SUCCESS
+            )
+        if errors:
+            for err in errors:
+                self.message_user(
+                    request,
+                    f"Ошибка при обновлении пользователя {err}",
+                    level=messages.ERROR
+                )
 
 ##############################
 # PaymentTypeModel Admin
