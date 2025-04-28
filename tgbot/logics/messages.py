@@ -357,7 +357,7 @@ def send_task_to_user(
 
         if sent is None or sent == Constants.USER_MENTION_PROBLEM:
             logger.error(f"send_task_to_user: не удалось отправить задачу {task.id} мастеру {master.chat_id}")
-            return None
+            return Constants.USER_MENTION_PROBLEM
 
         # 4. Сохраняем в базе
         sm = SentMessage.objects.create(
@@ -385,9 +385,8 @@ def broadcast_send_task_to_users(
     for master in masters:
         if send_task_to_user(task, master, reply_markup) == Constants.USER_MENTION_PROBLEM:
             delete_all_task_related(task)
-            task.responses.all().delete()
             task.delete()
-            return
+            return Constants.USER_MENTION_PROBLEM
 
 def edit_master_task_message(
     recipient: TelegramUser,

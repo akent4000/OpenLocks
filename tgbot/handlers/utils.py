@@ -226,12 +226,11 @@ def handle_task_repeat(call: CallbackQuery):
         reply_markup=dispather_task_keyboard(task=task),
     )
 
-    broadcast_send_task_to_users(
+    if broadcast_send_task_to_users(
         task=task,
         reply_markup=payment_types_keyboard(task)
-    )
-
-    bot.answer_callback_query(call.id, Messages.TASK_REPEATED)
+    ) != Constants.USER_MENTION_PROBLEM:
+        bot.answer_callback_query(call.id, Messages.TASK_REPEATED)
 
 @bot.callback_query_handler(func=lambda call: call.data.startswith(f"{CallbackData.PAYMENT_SELECT}?"))
 def handle_payment_select(call: CallbackQuery):
