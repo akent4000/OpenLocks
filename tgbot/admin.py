@@ -301,6 +301,14 @@ class TelegramUserAdmin(admin.ModelAdmin):
     )
     inlines = [UserResponseInline]
 
+    def get_urls(self):
+        urls = super().get_urls()
+        custom_urls = [
+            path("send-message/", self.admin_site.admin_view(self.send_message_view), name="send_message"),
+            path('<int:object_id>/send_message_user/', self.admin_site.admin_view(self.send_message_user), name='telegramuser_send_message_user'),
+        ]
+        return custom_urls + urls
+
     def change_view(self, request, object_id, form_url='', extra_context=None):
         extra_context = extra_context or {}
         extra_context['send_message_user'] = f"/admin/tgbot/telegramuser/{object_id}/send_message_user/"
