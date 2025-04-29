@@ -128,7 +128,9 @@ class TelegramUser(models.Model):
     is_group = models.BooleanField(default=False, verbose_name='Групповой чат')
     bot_was_blocked = models.BooleanField(default=False, verbose_name='Бот заблокирован')
     send_admin_notifications = models.BooleanField(default=False, verbose_name='Оповещения об ошибках')
-
+    is_admin = models.BooleanField(default=False, verbose_name='Администратор')
+    admin_signature = models.CharField(max_length=255, blank=True, null=True, verbose_name='Подпись администратора', help_text='Если пользователь является администратором, эта подпись будет отображаться в сообщениях, отправляемых им.')
+    
     def __str__(self):
         return f"{self.first_name} {self.last_name or ''} (@{self.username})"
 

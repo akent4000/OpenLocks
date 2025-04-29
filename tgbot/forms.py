@@ -1,5 +1,5 @@
 from django import forms
-from tgbot.models import SSHKey
+from tgbot.models import SSHKey, TelegramUser
 
 class SSHKeyAdminForm(forms.ModelForm):
     # Дополнительные поля используются только при создании ключа
@@ -23,3 +23,16 @@ class SSHKeyChangeForm(forms.ModelForm):
     class Meta:
         model = SSHKey
         fields = ("key_name",)
+
+class SendMessageForm(forms.Form):
+    message = forms.CharField(
+        label="Текст сообщения",
+        widget=forms.Textarea(attrs={"rows": 4, "cols": 40}),
+        required=True
+    )
+    sender = forms.ModelChoiceField(
+        label="Отправить от имени",
+        queryset=TelegramUser.objects.filter(is_admin=True),
+        widget=forms.Select,
+        required=True
+    )

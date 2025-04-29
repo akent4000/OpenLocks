@@ -1,0 +1,12 @@
+{% extends "admin/base_site.html" %}
+{% block content %}
+  <div>
+    <h1>Отправка сообщения</h1>
+    <form method="post">
+      {% csrf_token %}
+      {{ form.as_p }}
+      <button type="submit" class="button button-primary">Отправить</button>
+      <a href=".." class="button">Отмена</a>
+    </form>
+  </div>
+{% endblock %}

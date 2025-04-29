@@ -20,9 +20,10 @@ from rangefilter.filters import DateRangeFilter, NumericRangeFilter
 
 from solo.admin import SingletonModelAdmin
 
+from tgbot.logics.administrator_actions import mass_mailing
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 from tgbot.models import *
-from tgbot.forms import SSHKeyAdminForm, SSHKeyChangeForm
+from tgbot.forms import SSHKeyAdminForm, SSHKeyChangeForm, SendMessageForm
 
 admin.site.site_header = "Администрирование Open Locks"
 admin.site.site_title = "Администрирование Open Locks"
@@ -273,7 +274,9 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'can_publish_tasks', 
         'blocked',
         'bot_was_blocked',
+        'is_admin',
         'send_admin_notifications',
+        'admin_signature',
         'created_at',
     )
     search_fields = ('chat_id', 'first_name', 'last_name', 'username')
@@ -291,6 +294,7 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'block_users',
         'unblock_users',
         'refresh_user_data',
+        'send_message_action',
     ]
     readonly_fields = (
         'bot_was_blocked',
@@ -366,6 +370,50 @@ class TelegramUserAdmin(admin.ModelAdmin):
                     f"Ошибка при обновлении пользователя {err}",
                     level=messages.ERROR
                 )
+    @admin.action(description="Отправить сообщение выбранным пользователям")
+    def send_message_action(self, request, queryset):
+        user_ids = ",".join(str(user.id) for user in queryset)
+        return redirect(f"{request.path}send-message/?users={user_ids}")
+    
+    def process_send_message(self, request, users):
+        """
+        Обрабатывает форму отправки сообщения для заданного списка пользователей.
+        Если POST – выполняет отправку, если GET – отображает форму.
+        """
+        if request.method == "POST":
+            form = SendMessageForm(request.POST)
+            if form.is_valid():
+                message_text = form.cleaned_data["message"]
+                sender = form.cleaned_data["sender"]
+                result = mass_mailing(admin=sender, users=users, text=message_text)
+                if result is None:
+                    result = "Не удалось отправить сообщения"
+                messages.success(request, result)
+                return redirect("..")
+        else:
+            form = SendMessageForm()
+
+        return render(request, "admin/send_message.html", {"form": form, "users": users})
+
+
+    def send_message_user(self, request, object_id):
+        """
+        Обработчик для отправки сообщения конкретному пользователю (на странице change).
+        """
+        user = self.get_object(request, object_id)
+        return self.process_send_message(request, [user])
+
+
+    def send_message_view(self, request):
+        """
+        Обработчик для отправки сообщения группе пользователей.
+        Пользовательские id передаются через GET-параметр "users" в виде строки через запятую.
+        """
+        user_ids = request.GET.get("users", "")
+        # Если параметр пустой, создаём пустой список, иначе разделяем по запятой
+        user_ids = user_ids.split(",") if user_ids else []
+        users = TelegramUser.objects.filter(id__in=user_ids)
+        return self.process_send_message(request, users)
 
 ##############################
 # PaymentTypeModel Admin
