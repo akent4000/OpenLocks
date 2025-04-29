@@ -20,7 +20,6 @@ from rangefilter.filters import DateRangeFilter, NumericRangeFilter
 
 from solo.admin import SingletonModelAdmin
 
-from tgbot.logics.administrator_actions import mass_mailing
 from tgbot.managers.ssh_manager import SSHAccessManager, sync_keys
 from tgbot.models import *
 from tgbot.forms import SSHKeyAdminForm, SSHKeyChangeForm, SendMessageForm
@@ -380,6 +379,7 @@ class TelegramUserAdmin(admin.ModelAdmin):
         Обрабатывает форму отправки сообщения для заданного списка пользователей.
         Если POST – выполняет отправку, если GET – отображает форму.
         """
+        from tgbot.logics.administrator_actions import mass_mailing
         if request.method == "POST":
             form = SendMessageForm(request.POST)
             if form.is_valid():
