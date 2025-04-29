@@ -301,6 +301,11 @@ class TelegramUserAdmin(admin.ModelAdmin):
     )
     inlines = [UserResponseInline]
 
+    def change_view(self, request, object_id, form_url='', extra_context=None):
+        extra_context = extra_context or {}
+        extra_context['send_message_user'] = f"/admin/tgbot/telegramuser/{object_id}/send_message_user/"
+        return super().change_view(request, object_id, form_url, extra_context)
+
     @admin.action(description="Разрешить доступ к публикации заданий")
     def allow_publish_tasks(self, request, queryset):
         updated = queryset.update(can_publish_tasks=True)
