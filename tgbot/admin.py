@@ -286,6 +286,8 @@ class TelegramUserAdmin(admin.ModelAdmin):
         'send_admin_notifications',
         'bot_was_blocked',
         'created_at',
+        'is_admin',
+        'send_admin_notifications',
     )
     actions = [
         'allow_publish_tasks',
