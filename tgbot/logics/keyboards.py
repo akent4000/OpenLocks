@@ -49,7 +49,7 @@ def payment_types_keyboard(task: Task):
             callback_data=f"{CallbackData.PAYMENT_SELECT}?{CallbackData.PAYMENT_ID}={payment_type.id}&{CallbackData.TASK_ID}={task.id}"
         ) 
         keyboard.append([button])
-    button = InlineKeyboardButton("Отменить мой отклик")
+    button = InlineKeyboardButton("Отменить мой отклик", callback_data="111s")
     keyboard.append([button])
     markup = InlineKeyboardMarkup(keyboard)
     return markup
