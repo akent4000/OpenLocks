@@ -513,8 +513,8 @@ def broadcast_edit_master_task_message(
                 markup_to_send = new_reply_markup if new_reply_markup is not None else payment_types_keyboard(task=task)
 
             if task.stage == task.Stage.CLOSED:
-                markup_to_send = None
-                text_to_send = Messages.TASK_CLOSED + "\n\n" + text_to_send
+                markup_to_send = new_reply_markup if new_reply_markup else None
+                text_to_send = new_text if new_text else Messages.TASK_CLOSED + "\n\n" + text_to_send
 
             edit_master_task_message(
                 recipient=master,
